@@ -181,7 +181,6 @@ def generate_task3_samples(
 
 
 def train_transformer(
-    epochs: int,
     batch_size: int,
     lr: float,
     genres: list[str],
@@ -191,6 +190,7 @@ def train_transformer(
     num_samples: int,
     max_new_tokens: int,
 ):
+    epochs = TRANSFORMER_CONFIG["epochs"]
     print(f"Using device: {DEVICE}")
 
     x_train, g_train, train_genre_to_id = load_genre_tokens(
@@ -249,18 +249,45 @@ def train_transformer(
     train_ppls = []
     val_ppls = []
     best_val_loss = float("inf")
+    start_epoch = 0
+    resume_path = CHECKPOINT_DIR / "latest_transformer.pt"
+
+    if resume_path.exists():
+        payload = torch.load(resume_path, map_location=DEVICE, weights_only=False)
+        saved_genre_to_id = payload.get("genre_to_id", {})
+        if saved_genre_to_id and saved_genre_to_id != genre_to_id:
+            raise RuntimeError(
+                "Resume checkpoint genre mapping does not match current data mapping. "
+                "Delete latest_transformer.pt to start fresh with the new genre setup."
+            )
+        model.load_state_dict(payload["model_state_dict"])
+        optimizer.load_state_dict(payload["optimizer_state_dict"])
+        for param_group in optimizer.param_groups:
+            param_group["lr"] = lr
+        start_epoch = int(payload.get("epoch_completed", -1)) + 1
+        best_val_loss = float(payload.get("best_val_loss", best_val_loss))
+        train_losses = list(payload.get("train_losses", []))
+        val_losses = list(payload.get("val_losses", []))
+        train_ppls = list(payload.get("train_ppls", []))
+        val_ppls = list(payload.get("val_ppls", []))
+        print(
+            f"[TR] Resumed from {resume_path} at epoch {start_epoch + 1} "
+            f"(best_val_loss={best_val_loss:.6f})"
+        )
+
+    end_epoch = start_epoch + epochs
 
     print(
-        f"[TR] Starting Task 3 training for {epochs} epochs "
+        f"[TR] Starting Task 3 training from epoch {start_epoch + 1} to {end_epoch} "
         f"(genres={all_genres}, train_batches={len(train_loader)}, val_batches={len(val_loader)})"
     )
 
-    for epoch in range(epochs):
+    for epoch in range(start_epoch, end_epoch):
         model.train()
         total_train = 0.0
         used_train = 0
 
-        for batch_idx, batch in enumerate(tqdm(train_loader, desc=f"Epoch {epoch+1}/{epochs} [Train]")):
+        for batch_idx, batch in enumerate(tqdm(train_loader, desc=f"Epoch {epoch+1}/{end_epoch} [Train]")):
             if train_max_batches is not None and batch_idx >= train_max_batches:
                 break
 
@@ -303,8 +330,29 @@ def train_transformer(
 
         if avg_val_loss < best_val_loss:
             best_val_loss = avg_val_loss
-            ckpt = {
+
+        latest_ckpt = {
+            "model_state_dict": model.state_dict(),
+            "genre_to_id": genre_to_id,
+            "vocab_size": VOCAB_SIZE,
+            "tokenization": "event",
+            "epoch_completed": epoch,
+            "best_val_loss": best_val_loss,
+            "config": {
+                "d_model": TRANSFORMER_CONFIG["d_model"],
+                "nhead": TRANSFORMER_CONFIG["nhead"],
+                "num_layers": TRANSFORMER_CONFIG["num_layers"],
+                "max_seq_len": TRANSFORMER_CONFIG["max_seq_len"],
+            },
+        }
+        torch.save(latest_ckpt, resume_path)
+
+        torch.save(
+            {
                 "model_state_dict": model.state_dict(),
+                "optimizer_state_dict": optimizer.state_dict(),
+                "epoch_completed": epoch,
+                "best_val_loss": best_val_loss,
                 "genre_to_id": genre_to_id,
                 "vocab_size": VOCAB_SIZE,
                 "tokenization": "event",
@@ -314,9 +362,13 @@ def train_transformer(
                     "num_layers": TRANSFORMER_CONFIG["num_layers"],
                     "max_seq_len": TRANSFORMER_CONFIG["max_seq_len"],
                 },
-            }
-            torch.save(ckpt, CHECKPOINT_DIR / "best_transformer.pt")
-            print("[TR] Saved best_transformer.pt")
+                "train_losses": train_losses,
+                "val_losses": val_losses,
+                "train_ppls": train_ppls,
+                "val_ppls": val_ppls,
+            },
+            resume_path,
+        )
 
     fig, axes = plt.subplots(1, 2, figsize=(14, 5))
 
@@ -357,12 +409,11 @@ def train_transformer(
     if not generate_after_train:
         return
 
-    best_path = CHECKPOINT_DIR / "best_transformer.pt"
-    if not best_path.exists():
-        print(f"[TR] Missing {best_path}; skipping generation.")
+    if not resume_path.exists():
+        print(f"[TR] Missing {resume_path}; skipping generation.")
         return
 
-    payload = torch.load(best_path, map_location=DEVICE, weights_only=False)
+    payload = torch.load(resume_path, map_location=DEVICE, weights_only=False)
     model.load_state_dict(payload["model_state_dict"])
 
     if genre_to_id:
@@ -383,7 +434,6 @@ def train_transformer(
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--epochs", type=int, default=TRANSFORMER_CONFIG["epochs"])
     parser.add_argument("--batch_size", type=int, default=TRANSFORMER_CONFIG["batch_size"])
     parser.add_argument("--lr", type=float, default=TRANSFORMER_CONFIG["lr"])
     parser.add_argument(
@@ -404,7 +454,6 @@ if __name__ == "__main__":
         genres = ["maestro"]
 
     train_transformer(
-        epochs=args.epochs,
         batch_size=args.batch_size,
         lr=args.lr,
         genres=genres,

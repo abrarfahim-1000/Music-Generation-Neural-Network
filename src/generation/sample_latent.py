@@ -55,12 +55,16 @@ def sample_ae(num_samples=5):
         seq_len=AE_CONFIG['seq_len']
     ).to(DEVICE)
 
-    checkpoint_path = CHECKPOINT_DIR / "best_ae.pt"
+    checkpoint_path = CHECKPOINT_DIR / "latest_ae.pt"
     if not checkpoint_path.exists():
         print(f"Checkpoint not found at {checkpoint_path}")
         return
 
-    model.load_state_dict(torch.load(checkpoint_path, map_location=DEVICE, weights_only=True))
+    payload = torch.load(checkpoint_path, map_location=DEVICE, weights_only=False)
+    if isinstance(payload, dict) and "model_state_dict" in payload:
+        model.load_state_dict(payload["model_state_dict"])
+    else:
+        model.load_state_dict(payload)
     model.eval()
 
     # Sample from the empirical latent distribution (not N(0,1)).
@@ -94,12 +98,16 @@ def sample_vae(num_samples: int = 8):
         seq_len=VAE_CONFIG["seq_len"],
     ).to(DEVICE)
 
-    checkpoint_path = CHECKPOINT_DIR / "best_vae.pt"
+    checkpoint_path = CHECKPOINT_DIR / "latest_vae.pt"
     if not checkpoint_path.exists():
         print(f"Checkpoint not found at {checkpoint_path}")
         return
 
-    model.load_state_dict(torch.load(checkpoint_path, map_location=DEVICE, weights_only=True))
+    payload = torch.load(checkpoint_path, map_location=DEVICE, weights_only=False)
+    if isinstance(payload, dict) and "model_state_dict" in payload:
+        model.load_state_dict(payload["model_state_dict"])
+    else:
+        model.load_state_dict(payload)
     model.eval()
 
     print(f"Generating {num_samples} samples from VAE latent space...")

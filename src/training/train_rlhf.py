@@ -271,8 +271,41 @@ def train_rlhf(
     set_seed(SEED)
     print(f"Using device: {DEVICE}")
 
-    base_ckpt = CHECKPOINT_DIR / "best_transformer.pt"
-    model, payload, genre_to_id = load_transformer_checkpoint(base_ckpt)
+    base_ckpt = CHECKPOINT_DIR / "latest_transformer.pt"
+    resume_path = CHECKPOINT_DIR / "latest_rlhf.pt"
+
+    start_step = 0
+    step_rewards: list[float] = []
+    step_losses: list[float] = []
+    best_mean_reward = float("-inf")
+
+    if resume_path.exists():
+        resume_payload = torch.load(resume_path, map_location=DEVICE, weights_only=False)
+        model, payload, base_genre_to_id = load_transformer_checkpoint(base_ckpt)
+        saved_genre_to_id = resume_payload.get("genre_to_id", {})
+        if saved_genre_to_id and base_genre_to_id and saved_genre_to_id != base_genre_to_id:
+            raise RuntimeError(
+                "RLHF resume checkpoint genre mapping does not match current latest_transformer.pt mapping. "
+                "Delete latest_rlhf.pt to start from the current base model."
+            )
+        genre_to_id = saved_genre_to_id if saved_genre_to_id else base_genre_to_id
+        model.load_state_dict(resume_payload["model_state_dict"])
+        optimizer = optim.Adam(model.parameters(), lr=lr)
+        optimizer.load_state_dict(resume_payload["optimizer_state_dict"])
+        for param_group in optimizer.param_groups:
+            param_group["lr"] = lr
+        start_step = int(resume_payload.get("step_completed", -1)) + 1
+        best_mean_reward = float(resume_payload.get("best_mean_reward", best_mean_reward))
+        step_rewards = list(resume_payload.get("step_rewards", []))
+        step_losses = list(resume_payload.get("step_losses", []))
+        print(
+            f"[RLHF] Resumed from {resume_path} at step {start_step + 1} "
+            f"(best_mean_reward={best_mean_reward:.6f})"
+        )
+    else:
+        model, payload, genre_to_id = load_transformer_checkpoint(base_ckpt)
+        optimizer = optim.Adam(model.parameters(), lr=lr)
+
     model.train()
 
     if genre in genre_to_id:
@@ -290,37 +323,34 @@ def train_rlhf(
     survey_rewards = load_survey_rewards(survey_csv)
     use_survey = len(survey_rewards) > 0
 
-    optimizer = optim.Adam(model.parameters(), lr=lr)
-
-    step_rewards: list[float] = []
-    step_losses: list[float] = []
-    best_mean_reward = float("-inf")
+    end_step = start_step + rl_steps
 
     # Save before-RLHF reference samples from the pretrained Task 3 policy.
-    frozen_before_model, _, _ = load_transformer_checkpoint(base_ckpt)
-    frozen_before_model.eval()
-    save_midi_samples(
-        model=frozen_before_model,
-        genre_id=genre_id,
-        output_prefix="task4_before",
-        num_samples=num_eval_samples,
-        max_new_tokens=max_new_tokens,
-        temperature=temperature,
-        top_k=top_k,
-    )
+    if start_step == 0:
+        frozen_before_model, _, _ = load_transformer_checkpoint(base_ckpt)
+        frozen_before_model.eval()
+        save_midi_samples(
+            model=frozen_before_model,
+            genre_id=genre_id,
+            output_prefix="task4_before",
+            num_samples=num_eval_samples,
+            max_new_tokens=max_new_tokens,
+            temperature=temperature,
+            top_k=top_k,
+        )
 
     print(
-        f"[RLHF] Starting RLHF for {rl_steps} iterations "
+        f"[RLHF] Starting RLHF from step {start_step + 1} to {end_step} "
         f"with {episodes_per_step} episodes/iteration."
     )
 
-    for step_idx in range(rl_steps):
+    for step_idx in range(start_step, end_step):
         model.train()
 
         episode_log_probs = []
         episode_rewards = []
 
-        for ep in tqdm(range(episodes_per_step), desc=f"RL step {step_idx+1}/{rl_steps}"):
+        for ep in tqdm(range(episodes_per_step), desc=f"RL step {step_idx+1}/{end_step}"):
             seq, log_prob_sum = generate_sequence_with_log_prob(
                 model=model,
                 genre_id=genre_id,
@@ -378,11 +408,24 @@ def train_rlhf(
                 "step": step_idx + 1,
                 "reward_source": "survey" if use_survey else "proxy",
             }
-            torch.save(tuned_payload, CHECKPOINT_DIR / "best_rlhf_transformer.pt")
-            print("[RLHF] Saved best_rlhf_transformer.pt")
+            torch.save(tuned_payload, CHECKPOINT_DIR / "latest_rlhf.pt")
+            print("[RLHF] Saved latest_rlhf.pt")
 
-    # Load best tuned model for after-RLHF generation.
-    tuned_ckpt_path = CHECKPOINT_DIR / "best_rlhf_transformer.pt"
+        torch.save(
+            {
+                "model_state_dict": model.state_dict(),
+                "optimizer_state_dict": optimizer.state_dict(),
+                "step_completed": step_idx,
+                "best_mean_reward": best_mean_reward,
+                "step_rewards": step_rewards,
+                "step_losses": step_losses,
+                "genre_to_id": genre_to_id,
+            },
+            resume_path,
+        )
+
+    # Load latest tuned model for after-RLHF generation.
+    tuned_ckpt_path = CHECKPOINT_DIR / "latest_rlhf.pt"
     if tuned_ckpt_path.exists():
         tuned = torch.load(tuned_ckpt_path, map_location=DEVICE, weights_only=False)
         model.load_state_dict(tuned["model_state_dict"])
@@ -440,7 +483,12 @@ def train_rlhf(
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--rl_steps", type=int, default=RLHF_CONFIG["rl_steps"])
+    parser.add_argument(
+        "--rl_steps",
+        type=int,
+        default=RLHF_CONFIG["rl_steps"],
+        help="Number of additional RLHF steps to run per invocation",
+    )
     parser.add_argument("--episodes_per_step", type=int, default=RLHF_CONFIG["episodes_per_step"])
     parser.add_argument("--max_new_tokens", type=int, default=RLHF_CONFIG["max_new_tokens"])
     parser.add_argument("--lr", type=float, default=RLHF_CONFIG["lr"])

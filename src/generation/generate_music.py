@@ -84,7 +84,7 @@ def generate_markov_music(transitions, num_steps=64, num_samples=5):
 
 
 def generate_transformer_music(num_samples=10, max_new_tokens=512, genre="maestro"):
-    checkpoint_path = CHECKPOINT_DIR / "best_transformer.pt"
+    checkpoint_path = CHECKPOINT_DIR / "latest_transformer.pt"
     if not checkpoint_path.exists():
         print(f"Checkpoint not found at {checkpoint_path}")
         return

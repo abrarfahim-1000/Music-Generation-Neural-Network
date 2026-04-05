@@ -17,11 +17,10 @@ from src.models.autoencoder import MusicAutoencoder
 
 
 def train_ae(
-    epochs: int | None = None,
     train_max_batches: int | None = None,
     val_max_batches: int | None = None,
 ):
-    epochs = epochs if epochs is not None else AE_CONFIG['epochs']
+    epochs = AE_CONFIG['epochs']
     print(f"Using device: {DEVICE}")
 
     train_path = PROCESSED_DATA_DIR / "maestro_train.npy"
@@ -71,15 +70,33 @@ def train_ae(
     train_losses = []
     val_losses = []
     best_val_loss = float('inf')
+    start_epoch = 0
+    resume_path = CHECKPOINT_DIR / "latest_ae.pt"
 
-    print(f"Starting training for {epochs} epochs...")
+    if resume_path.exists():
+        payload = torch.load(resume_path, map_location=DEVICE, weights_only=False)
+        model.load_state_dict(payload["model_state_dict"])
+        optimizer.load_state_dict(payload["optimizer_state_dict"])
+        for param_group in optimizer.param_groups:
+            param_group["lr"] = AE_CONFIG["lr"]
+        start_epoch = int(payload.get("epoch_completed", -1)) + 1
+        best_val_loss = float(payload.get("best_val_loss", best_val_loss))
+        train_losses = list(payload.get("train_losses", []))
+        val_losses = list(payload.get("val_losses", []))
+        print(
+            f"Resumed AE from {resume_path} at epoch {start_epoch + 1} "
+            f"(best_val_loss={best_val_loss:.6f})"
+        )
 
-    for epoch in range(epochs):
+    end_epoch = start_epoch + epochs
+    print(f"Starting AE training from epoch {start_epoch + 1} to {end_epoch}...")
+
+    for epoch in range(start_epoch, end_epoch):
         model.train()
         total_train_loss = 0.0
         train_batches_used = 0
 
-        for batch_idx, batch in enumerate(tqdm(train_loader, desc=f"Epoch {epoch+1}/{epochs} [Train]")):
+        for batch_idx, batch in enumerate(tqdm(train_loader, desc=f"Epoch {epoch+1}/{end_epoch} [Train]")):
             if train_max_batches is not None and batch_idx >= train_max_batches:
                 break
 
@@ -104,7 +121,7 @@ def train_ae(
         total_val_loss = 0.0
         val_batches_used = 0
         with torch.no_grad():
-            for batch_idx, batch in enumerate(tqdm(val_loader, desc=f"Epoch {epoch+1}/{epochs} [Val]")):
+            for batch_idx, batch in enumerate(tqdm(val_loader, desc=f"Epoch {epoch+1}/{end_epoch} [Val]")):
                 if val_max_batches is not None and batch_idx >= val_max_batches:
                     break
 
@@ -122,8 +139,18 @@ def train_ae(
 
         if avg_val_loss < best_val_loss:
             best_val_loss = avg_val_loss
-            torch.save(model.state_dict(), CHECKPOINT_DIR / "best_ae.pt")
-            print("Saved best model.")
+
+        torch.save(
+            {
+                "model_state_dict": model.state_dict(),
+                "optimizer_state_dict": optimizer.state_dict(),
+                "epoch_completed": epoch,
+                "best_val_loss": best_val_loss,
+                "train_losses": train_losses,
+                "val_losses": val_losses,
+            },
+            resume_path,
+        )
 
         if (epoch + 1) % 10 == 0:
             torch.save(model.state_dict(), CHECKPOINT_DIR / f"ae_epoch_{epoch+1}.pt")
@@ -142,13 +169,11 @@ def train_ae(
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--epochs", type=int, default=None, help="Override AE_CONFIG epochs (useful for smoke tests)")
     parser.add_argument("--train_max_batches", type=int, default=None, help="Smoke test: cap number of train batches")
     parser.add_argument("--val_max_batches", type=int, default=None, help="Smoke test: cap number of val batches")
     args = parser.parse_args()
 
     train_ae(
-        epochs=args.epochs,
         train_max_batches=args.train_max_batches,
         val_max_batches=args.val_max_batches,
     )

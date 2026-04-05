@@ -116,7 +116,6 @@ def generate_vae_interpolation(model: MusicVAE, device: str, num_steps: int = 8,
 
 
 def train_vae(
-    epochs: int,
     beta: float,
     batch_size: int,
     lr: float,
@@ -126,6 +125,7 @@ def train_vae(
     train_max_batches: int | None = None,
     val_max_batches: int | None = None,
 ):
+    epochs = VAE_CONFIG["epochs"]
     print(f"Using device: {DEVICE}")
 
     train_by_genre = load_genre_splits(genres, split="train")
@@ -158,16 +158,46 @@ def train_vae(
     val_kl_losses: list[float] = []
 
     best_val_total = float("inf")
+    start_epoch = 0
+    resume_path = CHECKPOINT_DIR / "latest_vae.pt"
 
-    print(f"[VAE] Starting training for {epochs} epochs on genres={genres}")
-    for epoch in range(epochs):
+    if resume_path.exists():
+        payload = torch.load(resume_path, map_location=DEVICE, weights_only=False)
+        saved_genres = sorted(payload.get("genres", []))
+        current_genres = sorted(genres)
+        if saved_genres and saved_genres != current_genres:
+            raise RuntimeError(
+                "Resume checkpoint genres do not match current --genres. "
+                "Delete latest_vae.pt to start fresh with a different genre set."
+            )
+        model.load_state_dict(payload["model_state_dict"])
+        optimizer.load_state_dict(payload["optimizer_state_dict"])
+        for param_group in optimizer.param_groups:
+            param_group["lr"] = lr
+        start_epoch = int(payload.get("epoch_completed", -1)) + 1
+        best_val_total = float(payload.get("best_val_total", best_val_total))
+        train_total_losses = list(payload.get("train_total_losses", []))
+        val_total_losses = list(payload.get("val_total_losses", []))
+        train_recon_losses = list(payload.get("train_recon_losses", []))
+        val_recon_losses = list(payload.get("val_recon_losses", []))
+        train_kl_losses = list(payload.get("train_kl_losses", []))
+        val_kl_losses = list(payload.get("val_kl_losses", []))
+        print(
+            f"[VAE] Resumed from {resume_path} at epoch {start_epoch + 1} "
+            f"(best_val_total={best_val_total:.6f})"
+        )
+
+    end_epoch = start_epoch + epochs
+
+    print(f"[VAE] Starting training from epoch {start_epoch + 1} to {end_epoch} on genres={genres}")
+    for epoch in range(start_epoch, end_epoch):
         model.train()
         total_train = 0.0
         total_train_recon = 0.0
         total_train_kl = 0.0
         train_batches_used = 0
 
-        for batch_idx, batch in enumerate(tqdm(train_loader, desc=f"Epoch {epoch+1}/{epochs} [Train]")):
+        for batch_idx, batch in enumerate(tqdm(train_loader, desc=f"Epoch {epoch+1}/{end_epoch} [Train]")):
             x = batch[0].to(DEVICE, dtype=torch.float32)
 
             if train_max_batches is not None and batch_idx >= train_max_batches:
@@ -203,7 +233,7 @@ def train_vae(
         val_batches_used = 0
 
         with torch.no_grad():
-            for batch_idx, batch in enumerate(tqdm(val_loader, desc=f"Epoch {epoch+1}/{epochs} [Val]")):
+            for batch_idx, batch in enumerate(tqdm(val_loader, desc=f"Epoch {epoch+1}/{end_epoch} [Val]")):
                 x = batch[0].to(DEVICE, dtype=torch.float32)
                 if val_max_batches is not None and batch_idx >= val_max_batches:
                     break
@@ -240,8 +270,23 @@ def train_vae(
 
         if avg_val_total < best_val_total:
             best_val_total = avg_val_total
-            torch.save(model.state_dict(), CHECKPOINT_DIR / "best_vae.pt")
-            print("[VAE] Saved best_vae.pt")
+
+        torch.save(
+            {
+                "model_state_dict": model.state_dict(),
+                "optimizer_state_dict": optimizer.state_dict(),
+                "epoch_completed": epoch,
+                "best_val_total": best_val_total,
+                "train_total_losses": train_total_losses,
+                "val_total_losses": val_total_losses,
+                "train_recon_losses": train_recon_losses,
+                "val_recon_losses": val_recon_losses,
+                "train_kl_losses": train_kl_losses,
+                "val_kl_losses": val_kl_losses,
+                "genres": sorted(genres),
+            },
+            resume_path,
+        )
 
     # Plot losses
     plt.figure(figsize=(12, 6))
@@ -261,13 +306,13 @@ def train_vae(
     if not generate_after_train:
         return
 
-    # Load best checkpoint for generation
-    best_path = CHECKPOINT_DIR / "best_vae.pt"
-    if not best_path.exists():
-        print(f"[VAE] Best checkpoint not found at {best_path}, skipping generation.")
+    # Load latest checkpoint for generation
+    if not resume_path.exists():
+        print(f"[VAE] Latest checkpoint not found at {resume_path}, skipping generation.")
         return
 
-    model.load_state_dict(torch.load(best_path, map_location=DEVICE, weights_only=True))
+    payload = torch.load(resume_path, map_location=DEVICE, weights_only=False)
+    model.load_state_dict(payload["model_state_dict"])
 
     # Generate Task 2 samples + interpolation
     generate_vae_midi_samples(
@@ -287,7 +332,6 @@ def train_vae(
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--epochs", type=int, default=VAE_CONFIG["epochs"])
     parser.add_argument("--beta", type=float, default=VAE_CONFIG["beta"])
     parser.add_argument("--batch_size", type=int, default=VAE_CONFIG["batch_size"])
     parser.add_argument("--lr", type=float, default=VAE_CONFIG["lr"])
@@ -303,7 +347,6 @@ if __name__ == "__main__":
         genres = ["maestro"]
 
     train_vae(
-        epochs=args.epochs,
         beta=args.beta,
         batch_size=args.batch_size,
         lr=args.lr,
