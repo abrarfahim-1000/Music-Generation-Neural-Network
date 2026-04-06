@@ -137,10 +137,6 @@ Thumbs.db
 data/raw_midi/*
 !data/raw_midi/.gitkeep
 outputs/generated_midis/*.mid
-outputs/plots/*.png
-outputs/plots/*.jpg
-outputs/survey_results/*.json
-outputs/survey_results/*.csv
 checkpoints/
 *.pt
 *.pth
