@@ -147,50 +147,14 @@ def sample_next_token(logits: torch.Tensor, temperature: float = 1.0, top_k: int
     return torch.multinomial(probs, num_samples=1)
 
 
-def generate_task3_samples(
-    model: MusicTransformer,
-    genre_id: int,
-    num_samples: int = 10,
-    max_new_tokens: int = 512,
-    temperature: float = 1.0,
-    top_k: int = 10,
-):
-    model.eval()
-
-    with torch.no_grad():
-        for i in range(num_samples):
-            tokens = torch.full((1, 1), BOS_TOKEN_ID, dtype=torch.long, device=DEVICE)
-            genre_tensor = torch.tensor([genre_id], dtype=torch.long, device=DEVICE)
-
-            for _ in range(max_new_tokens):
-                context = tokens[:, -model.max_seq_len :]
-                logits = model(context, genre_ids=genre_tensor)
-                next_logits = logits[:, -1, :]
-                next_token = sample_next_token(next_logits, temperature=temperature, top_k=top_k)
-                tokens = torch.cat([tokens, next_token], dim=1)
-
-                if int(next_token.item()) == EOS_TOKEN_ID:
-                    break
-
-            token_seq = tokens.squeeze(0).cpu().numpy()
-            roll = tokens_to_piano_roll(token_seq, num_pitches=128)
-            pm = piano_roll_to_pretty_midi(roll, fs=FS)
-            out = GENERATED_MIDI_DIR / f"task3_sample_{i}.mid"
-            pm.write(str(out))
-            print(f"[TR] Saved {out}")
-
-
 def train_transformer(
     batch_size: int,
     lr: float,
-    genres: list[str],
     train_max_batches: int | None,
     val_max_batches: int | None,
-    generate_after_train: bool,
-    num_samples: int,
-    max_new_tokens: int,
 ):
     epochs = TRANSFORMER_CONFIG["epochs"]
+    genres = ["lakh"]  # Task 3: multi-genre Transformer trains on Lakh MIDI
     print(f"Using device: {DEVICE}")
 
     x_train, g_train, train_genre_to_id = load_genre_tokens(
@@ -405,61 +369,20 @@ def train_transformer(
             indent=2,
         )
     print(f"[TR] Saved summary to {summary_path}")
-
-    if not generate_after_train:
-        return
-
-    if not resume_path.exists():
-        print(f"[TR] Missing {resume_path}; skipping generation.")
-        return
-
-    payload = torch.load(resume_path, map_location=DEVICE, weights_only=False)
-    model.load_state_dict(payload["model_state_dict"])
-
-    if genre_to_id:
-        default_genre = sorted(genre_to_id.keys())[0]
-        default_genre_id = genre_to_id[default_genre]
-    else:
-        default_genre_id = 0
-
-    generate_task3_samples(
-        model=model,
-        genre_id=default_genre_id,
-        num_samples=num_samples,
-        max_new_tokens=max_new_tokens,
-        temperature=1.0,
-        top_k=10,
-    )
+    print(f"[TR] Training complete. Use 'python src/generation/generate_music.py --model transformer' to generate samples.")
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--batch_size", type=int, default=TRANSFORMER_CONFIG["batch_size"])
     parser.add_argument("--lr", type=float, default=TRANSFORMER_CONFIG["lr"])
-    parser.add_argument(
-        "--genres",
-        type=str,
-        default="maestro",
-        help="Comma-separated genre list (expects data/processed/{genre}_train.npy etc.)",
-    )
     parser.add_argument("--train_max_batches", type=int, default=None, help="Smoke test: cap train batches")
     parser.add_argument("--val_max_batches", type=int, default=None, help="Smoke test: cap val batches")
-    parser.add_argument("--no_generate", action="store_true", help="Skip MIDI generation after training")
-    parser.add_argument("--num_samples", type=int, default=10)
-    parser.add_argument("--max_new_tokens", type=int, default=512)
     args = parser.parse_args()
-
-    genres = [g.strip() for g in args.genres.split(",") if g.strip()]
-    if not genres:
-        genres = ["maestro"]
 
     train_transformer(
         batch_size=args.batch_size,
         lr=args.lr,
-        genres=genres,
         train_max_batches=args.train_max_batches,
         val_max_batches=args.val_max_batches,
-        generate_after_train=not args.no_generate,
-        num_samples=args.num_samples,
-        max_new_tokens=args.max_new_tokens,
     )
