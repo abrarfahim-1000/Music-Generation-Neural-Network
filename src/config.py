@@ -68,12 +68,12 @@ VAE_CONFIG = {
 
 # Task 3: Transformer Hyperparameters (Conservative for CPU/XPU)
 TRANSFORMER_CONFIG = {
-    "d_model": 128,
-    "nhead": 4,
-    "num_layers": 3,
+    "d_model": 256,
+    "nhead": 8,
+    "num_layers": 6,
     "max_seq_len": 256,
     "batch_size": 16,
-    "epochs": 10,
+    "epochs": 20,
     "lr": 1e-4
 }
 
