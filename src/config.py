@@ -13,7 +13,7 @@ SPLIT_DATA_DIR = DATA_DIR / "train_test_split"
 
 # Dataset-Specific Paths
 MAESTRO_DIR = RAW_DATA_DIR / "maestro"
-CLEAN_MIDI_DIR = RAW_DATA_DIR / "clean_midi"
+LAKH_DIR = RAW_DATA_DIR / "clean_midi"  # Lakh data extracted as clean_midi
 GROOVE_DIR = RAW_DATA_DIR / "groove"
 
 MAESTRO_CSV = MAESTRO_DIR / "maestro-v3.0.0.csv"
@@ -50,7 +50,7 @@ AE_CONFIG = {
     "hidden_size": 256,
     "latent_dim": 128,
     "batch_size": 64,
-    "epochs": 50,
+    "epochs": 10,
     "lr": 1e-3,
     "seq_len": SEQ_LEN
 }
@@ -61,7 +61,7 @@ VAE_CONFIG = {
     "latent_dim": 128,
     "beta": 1.0,  # KL Divergence weight
     "batch_size": 64,
-    "epochs": 50,
+    "epochs": 10,
     "lr": 1e-3,
     "seq_len": SEQ_LEN
 }
@@ -73,7 +73,7 @@ TRANSFORMER_CONFIG = {
     "num_layers": 3,
     "max_seq_len": 256,
     "batch_size": 16,
-    "epochs": 50,
+    "epochs": 10,
     "lr": 1e-4
 }
 

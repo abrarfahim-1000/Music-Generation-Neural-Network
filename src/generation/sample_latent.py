@@ -122,17 +122,62 @@ def sample_vae(num_samples: int = 8):
             print(f"Saved {output_path}")
 
 
+def interpolate_vae(num_steps: int = 8):
+    """
+    Latent space interpolation: sample two random latent vectors z1 and z2,
+    and generate a smooth sequence of intermediate samples.
+    """
+    print(f"Using device: {DEVICE}")
+
+    model = MusicVAE(
+        input_size=128,
+        hidden_size=VAE_CONFIG["hidden_size"],
+        latent_dim=VAE_CONFIG["latent_dim"],
+        seq_len=VAE_CONFIG["seq_len"],
+    ).to(DEVICE)
+
+    checkpoint_path = CHECKPOINT_DIR / "latest_vae.pt"
+    if not checkpoint_path.exists():
+        print(f"Checkpoint not found at {checkpoint_path}")
+        return
+
+    payload = torch.load(checkpoint_path, map_location=DEVICE, weights_only=False)
+    if isinstance(payload, dict) and "model_state_dict" in payload:
+        model.load_state_dict(payload["model_state_dict"])
+    else:
+        model.load_state_dict(payload)
+    model.eval()
+
+    latent_dim = VAE_CONFIG["latent_dim"]
+    z1 = torch.randn(1, latent_dim).to(DEVICE)
+    z2 = torch.randn(1, latent_dim).to(DEVICE)
+
+    print(f"Interpolating between two random latent vectors ({num_steps} steps)...")
+    with torch.no_grad():
+        for i, alpha in enumerate(np.linspace(0.0, 1.0, num_steps)):
+            z = (1.0 - alpha) * z1 + alpha * z2
+            x_hat = model.decode(z)  # (1, seq_len, 128)
+            roll = x_hat.squeeze(0).cpu().numpy().T  # (128, seq_len)
+            pm = piano_roll_to_pretty_midi(roll, fs=FS)
+            output_path = GENERATED_MIDI_DIR / f"task2_interp_{i}.mid"
+            pm.write(str(output_path))
+            print(f"Saved {output_path}")
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--model", choices=["ae", "vae"], default="ae")
-    parser.add_argument("--num_samples", type=int, default=None)
+    parser.add_argument("--model", choices=["ae", "vae"], default="ae", help="Model to sample from")
+    parser.add_argument("--num_samples", type=int, default=None, help="Number of samples to generate (AE/VAE)")
+    parser.add_argument("--interpolate", action="store_true", help="Generate VAE latent interpolation instead of samples")
+    parser.add_argument("--interp_steps", type=int, default=8, help="Number of interpolation steps")
     args = parser.parse_args()
 
-    num_samples = args.num_samples
-    if num_samples is None:
-        num_samples = 8 if args.model == "vae" else 5
-
     if args.model == "ae":
+        num_samples = args.num_samples if args.num_samples is not None else 5
         sample_ae(num_samples=num_samples)
-    else:
-        sample_vae(num_samples=num_samples)
+    else:  # vae
+        if args.interpolate:
+            interpolate_vae(num_steps=args.interp_steps)
+        else:
+            num_samples = args.num_samples if args.num_samples is not None else 8
+            sample_vae(num_samples=num_samples)

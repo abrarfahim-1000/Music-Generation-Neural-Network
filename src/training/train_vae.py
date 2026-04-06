@@ -74,58 +74,16 @@ def concat_splits(split_by_genre: dict[str, np.ndarray]) -> np.ndarray:
     return np.concatenate(arrays, axis=0)
 
 
-def generate_vae_midi_samples(
-    model: MusicVAE,
-    device: str,
-    num_samples: int = 8,
-    output_prefix: str = "task2_sample",
-):
-    """
-    Generates MIDI samples by sampling z ~ N(0, I) and decoding.
-    """
-    model.eval()
-    latent_dim = VAE_CONFIG["latent_dim"]
-
-    with torch.no_grad():
-        for i in range(num_samples):
-            z = torch.randn(1, latent_dim).to(device)
-            x_hat = model.decode(z)  # (1, seq_len, 128)
-            roll = x_hat.squeeze(0).cpu().numpy().T  # (128, seq_len)
-            pm = piano_roll_to_pretty_midi(roll, fs=FS)
-            output_path = GENERATED_MIDI_DIR / f"{output_prefix}_{i}.mid"
-            pm.write(str(output_path))
-            print(f"[VAE] Saved {output_path}")
-
-
-def generate_vae_interpolation(model: MusicVAE, device: str, num_steps: int = 8, output_prefix: str = "task2_interp"):
-    model.eval()
-    latent_dim = VAE_CONFIG["latent_dim"]
-
-    z1 = torch.randn(1, latent_dim).to(device)
-    z2 = torch.randn(1, latent_dim).to(device)
-
-    with torch.no_grad():
-        for i, alpha in enumerate(np.linspace(0.0, 1.0, num_steps)):
-            z = (1.0 - alpha) * z1 + alpha * z2
-            x_hat = model.decode(z)
-            roll = x_hat.squeeze(0).cpu().numpy().T
-            pm = piano_roll_to_pretty_midi(roll, fs=FS)
-            output_path = GENERATED_MIDI_DIR / f"{output_prefix}_{i}.mid"
-            pm.write(str(output_path))
-            print(f"[VAE] Saved {output_path}")
-
 
 def train_vae(
     beta: float,
     batch_size: int,
     lr: float,
-    genres: list[str],
-    generate_after_train: bool,
-    num_samples: int,
     train_max_batches: int | None = None,
     val_max_batches: int | None = None,
 ):
     epochs = VAE_CONFIG["epochs"]
+    genres = ["lakh"]  # Task 2: multi-genre VAE trains on Lakh MIDI only
     print(f"Using device: {DEVICE}")
 
     train_by_genre = load_genre_splits(genres, split="train")
@@ -173,8 +131,7 @@ def train_vae(
         model.load_state_dict(payload["model_state_dict"])
         optimizer.load_state_dict(payload["optimizer_state_dict"])
         for param_group in optimizer.param_groups:
-            param_group["lr"] = lr
-        start_epoch = int(payload.get("epoch_completed", -1)) + 1
+                param_group["lr"] = lr
         best_val_total = float(payload.get("best_val_total", best_val_total))
         train_total_losses = list(payload.get("train_total_losses", []))
         val_total_losses = list(payload.get("val_total_losses", []))
@@ -302,32 +259,7 @@ def train_vae(
     plt.savefig(plot_path)
     plt.close()
     print(f"[VAE] Loss curve saved to {plot_path}")
-
-    if not generate_after_train:
-        return
-
-    # Load latest checkpoint for generation
-    if not resume_path.exists():
-        print(f"[VAE] Latest checkpoint not found at {resume_path}, skipping generation.")
-        return
-
-    payload = torch.load(resume_path, map_location=DEVICE, weights_only=False)
-    model.load_state_dict(payload["model_state_dict"])
-
-    # Generate Task 2 samples + interpolation
-    generate_vae_midi_samples(
-        model=model,
-        device=DEVICE,
-        num_samples=num_samples,
-        output_prefix="task2_sample",
-    )
-
-    generate_vae_interpolation(
-        model=model,
-        device=DEVICE,
-        num_steps=8,
-        output_prefix="task2_interp",
-    )
+    print(f"[VAE] Training complete. Use 'python src/generation/sample_latent.py --model vae' to generate samples.")
 
 
 if __name__ == "__main__":
@@ -335,24 +267,14 @@ if __name__ == "__main__":
     parser.add_argument("--beta", type=float, default=VAE_CONFIG["beta"])
     parser.add_argument("--batch_size", type=int, default=VAE_CONFIG["batch_size"])
     parser.add_argument("--lr", type=float, default=VAE_CONFIG["lr"])
-    parser.add_argument("--genres", type=str, default="maestro", help="Comma-separated list (e.g., maestro,lakh,groove)")
-    parser.add_argument("--no_generate", action="store_true", help="Skip MIDI generation after training.")
-    parser.add_argument("--num_samples", type=int, default=8)
     parser.add_argument("--train_max_batches", type=int, default=None, help="Smoke test: cap number of train batches.")
     parser.add_argument("--val_max_batches", type=int, default=None, help="Smoke test: cap number of val batches.")
     args = parser.parse_args()
-
-    genres = [g.strip() for g in args.genres.split(",") if g.strip()]
-    if not genres:
-        genres = ["maestro"]
 
     train_vae(
         beta=args.beta,
         batch_size=args.batch_size,
         lr=args.lr,
-        genres=genres,
-        generate_after_train=not args.no_generate,
-        num_samples=args.num_samples,
         train_max_batches=args.train_max_batches,
         val_max_batches=args.val_max_batches,
     )
