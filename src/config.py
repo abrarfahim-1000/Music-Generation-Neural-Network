@@ -72,8 +72,8 @@ TRANSFORMER_CONFIG = {
     "nhead": 8,
     "num_layers": 6,
     "max_seq_len": 256,
-    "batch_size": 16,
-    "epochs": 20,
+    "batch_size": 64,
+    "epochs": 5,
     "lr": 1e-4
 }
 

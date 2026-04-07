@@ -22,7 +22,6 @@ from src.config import (
     FS,
     GENERATED_MIDI_DIR,
     PLOTS_DIR,
-    PROCESSED_DATA_DIR,
     TRANSFORMER_CONFIG,
 )
 from src.models.transformer import MusicTransformer
@@ -35,6 +34,7 @@ from src.preprocessing.tokenizer import (
     piano_roll_batch_to_event_tokens,
     tokens_to_piano_roll,
 )
+PROCESSED_DATA_DIR = Path("F:/") / "lakh"
 
 
 def load_genre_tokens(genres: list[str], split: str, max_seq_len: int):
@@ -49,7 +49,7 @@ def load_genre_tokens(genres: list[str], split: str, max_seq_len: int):
 
     token_batches = []
     genre_batches = []
-
+    
     valid_genres = []
     for genre in genres:
         path = PROCESSED_DATA_DIR / f"{genre}_{split}.npy"
@@ -116,9 +116,9 @@ def evaluate(
                 break
 
             x, y, g = batch
-            x = x.to(DEVICE)
-            y = y.to(DEVICE)
-            g = g.to(DEVICE)
+            x = x.to(DEVICE, non_blocking=True)
+            y = y.to(DEVICE, non_blocking=True)
+            g = g.to(DEVICE, non_blocking=True)
 
             logits = model(x, genre_ids=g)
             loss = criterion(logits.reshape(-1, logits.size(-1)), y.reshape(-1))
@@ -192,8 +192,8 @@ def train_transformer(
         torch.from_numpy(g_val).long(),
     )
 
-    train_loader = DataLoader(train_ds, batch_size=batch_size, shuffle=True)
-    val_loader = DataLoader(val_ds, batch_size=batch_size, shuffle=False)
+    train_loader = DataLoader(train_ds, batch_size=batch_size, shuffle=True, num_workers=2, pin_memory=True)
+    val_loader = DataLoader(val_ds, batch_size=batch_size, shuffle=False, num_workers=2, pin_memory=True)
 
     model = MusicTransformer(
         vocab_size=VOCAB_SIZE,
@@ -295,22 +295,7 @@ def train_transformer(
         if avg_val_loss < best_val_loss:
             best_val_loss = avg_val_loss
 
-        latest_ckpt = {
-            "model_state_dict": model.state_dict(),
-            "genre_to_id": genre_to_id,
-            "vocab_size": VOCAB_SIZE,
-            "tokenization": "event",
-            "epoch_completed": epoch,
-            "best_val_loss": best_val_loss,
-            "config": {
-                "d_model": TRANSFORMER_CONFIG["d_model"],
-                "nhead": TRANSFORMER_CONFIG["nhead"],
-                "num_layers": TRANSFORMER_CONFIG["num_layers"],
-                "max_seq_len": TRANSFORMER_CONFIG["max_seq_len"],
-            },
-        }
-        torch.save(latest_ckpt, resume_path)
-
+        # Single checkpoint save with all training history
         torch.save(
             {
                 "model_state_dict": model.state_dict(),
@@ -334,41 +319,50 @@ def train_transformer(
             resume_path,
         )
 
+    # Plot cumulative losses/perplexities across all epochs trained so far
     fig, axes = plt.subplots(1, 2, figsize=(14, 5))
 
-    axes[0].plot(train_losses, label="Train CE")
-    axes[0].plot(val_losses, label="Val CE")
-    axes[0].set_title("Task 3: Transformer Cross-Entropy")
+    total_epochs_trained = len(train_losses)
+    epoch_range = list(range(total_epochs_trained))
+
+    axes[0].plot(epoch_range, train_losses, label="Train CE")
+    axes[0].plot(epoch_range, val_losses, label="Val CE")
+    axes[0].set_title(f"Task 3: Transformer Cross-Entropy (Cumulative: {total_epochs_trained} epochs)")
     axes[0].set_xlabel("Epoch")
     axes[0].set_ylabel("Loss")
     axes[0].legend()
+    axes[0].grid(True, alpha=0.3)
 
-    axes[1].plot(train_ppls, label="Train PPL")
-    axes[1].plot(val_ppls, label="Val PPL")
-    axes[1].set_title("Task 3: Perplexity")
+    axes[1].plot(epoch_range, train_ppls, label="Train PPL")
+    axes[1].plot(epoch_range, val_ppls, label="Val PPL")
+    axes[1].set_title(f"Task 3: Perplexity (Cumulative: {total_epochs_trained} epochs)")
     axes[1].set_xlabel("Epoch")
     axes[1].set_ylabel("Perplexity")
     axes[1].legend()
+    axes[1].grid(True, alpha=0.3)
 
     plt.tight_layout()
     plot_path = PLOTS_DIR / "task3_transformer_curves.png"
     plt.savefig(plot_path)
     plt.close(fig)
-    print(f"[TR] Saved plot to {plot_path}")
+    print(f"[TR] Saved cumulative plot ({total_epochs_trained} epochs) to {plot_path}")
 
+    # Cumulative summary
     summary_path = PLOTS_DIR / "task3_perplexity_summary.json"
     with summary_path.open("w", encoding="utf-8") as f:
         json.dump(
             {
+                "total_epochs_trained": total_epochs_trained,
                 "best_val_loss": best_val_loss,
                 "best_val_perplexity": float(np.exp(best_val_loss)),
                 "last_val_loss": val_losses[-1] if val_losses else None,
                 "last_val_perplexity": val_ppls[-1] if val_ppls else None,
+                "epoch_range": epoch_range,
             },
             f,
             indent=2,
         )
-    print(f"[TR] Saved summary to {summary_path}")
+    print(f"[TR] Saved cumulative summary ({total_epochs_trained} epochs total) to {summary_path}")
     print(f"[TR] Training complete. Use 'python src/generation/generate_music.py --model transformer' to generate samples.")
 
 

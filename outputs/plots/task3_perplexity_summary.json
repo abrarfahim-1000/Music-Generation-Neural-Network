@@ -1,6 +1,14 @@
 {
-  "best_val_loss": 1.013466055790965,
-  "best_val_perplexity": 2.7551339325830884,
-  "last_val_loss": 1.013466055790965,
-  "last_val_perplexity": 2.7551339325830884
+  "total_epochs_trained": 5,
+  "best_val_loss": 1.0741117626772037,
+  "best_val_perplexity": 2.9273915269734956,
+  "last_val_loss": 1.0741117626772037,
+  "last_val_perplexity": 2.9273915269734956,
+  "epoch_range": [
+    0,
+    1,
+    2,
+    3,
+    4
+  ]
 }

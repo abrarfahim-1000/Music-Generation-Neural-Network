@@ -75,8 +75,8 @@ class MusicTransformer(nn.Module):
         x = x + genre_cond
 
         x = self.dropout(x)
-
-        mask = self.causal_mask(seq_len=seq_len, device=tokens.device)
-        h = self.transformer(x, mask=mask)
+        
+        mask = nn.Transformer.generate_square_subsequent_mask(seq_len, device=tokens.device)
+        h = self.transformer(x, mask=mask, is_causal=True)  # (batch, seq_len, d_model)
         logits = self.head(h)
         return logits
