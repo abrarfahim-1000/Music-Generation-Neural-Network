@@ -1,0 +1,42 @@
+filename,model,duration_s,note_count,pitch_min,pitch_max,pitch_range,rhythm_diversity,repetition_ratio,pitch_histogram_similarity
+baseline_markov_0.mid,Markov Baseline,4.0,24,39,82,43,0.625,0.0,0.5441
+baseline_markov_1.mid,Markov Baseline,4.0,18,33,75,42,0.5556,0.0,0.4352
+baseline_markov_2.mid,Markov Baseline,4.0,23,31,78,47,0.6087,0.0,0.7104
+baseline_markov_3.mid,Markov Baseline,4.0,19,42,72,30,0.6842,0.0,0.6001
+baseline_markov_4.mid,Markov Baseline,4.0,29,34,76,42,0.4828,0.0,0.8443
+baseline_random_0.mid,Random Baseline,3.94,177,0,127,127,0.0226,0.0,0.8793
+baseline_random_1.mid,Random Baseline,4.0,158,0,126,126,0.0316,0.0,0.9171
+baseline_random_2.mid,Random Baseline,4.0,167,0,127,127,0.018,0.0,0.8692
+baseline_random_3.mid,Random Baseline,3.94,156,0,127,127,0.0321,0.0,0.8888
+baseline_random_4.mid,Random Baseline,4.0,153,1,126,125,0.0131,0.0,0.8937
+task1_sample_0.mid,Task 1 — LSTM Autoencoder,3.19,3,55,61,6,1.0,0.0,0.2387
+task1_sample_1.mid,Task 1 — LSTM Autoencoder,4.0,18,52,78,26,0.7222,0.0,0.6104
+task1_sample_2.mid,Task 1 — LSTM Autoencoder,4.0,14,33,81,48,0.7857,0.0,0.4872
+task1_sample_3.mid,Task 1 — LSTM Autoencoder,3.44,7,44,78,34,1.0,0.0,0.4217
+task1_sample_4.mid,Task 1 — LSTM Autoencoder,4.0,13,58,82,24,0.9231,0.0,0.4801
+task2_interp_0.mid,Task 2 — VAE Interpolation,4.0,19,50,76,26,0.1053,0.0,0.7862
+task2_interp_1.mid,Task 2 — VAE Interpolation,4.0,19,50,76,26,0.1053,0.0,0.7862
+task2_interp_2.mid,Task 2 — VAE Interpolation,4.0,19,50,76,26,0.1053,0.0,0.7862
+task2_interp_3.mid,Task 2 — VAE Interpolation,4.0,19,50,76,26,0.1053,0.0,0.7862
+task2_interp_4.mid,Task 2 — VAE Interpolation,4.0,19,50,76,26,0.1053,0.0,0.7862
+task2_interp_5.mid,Task 2 — VAE Interpolation,4.0,19,50,76,26,0.1053,0.0,0.7862
+task2_interp_6.mid,Task 2 — VAE Interpolation,4.0,19,50,76,26,0.1053,0.0,0.7862
+task2_interp_7.mid,Task 2 — VAE Interpolation,4.0,19,50,76,26,0.1053,0.0,0.7862
+task2_sample_0.mid,Task 2 — VAE,4.0,18,50,74,24,0.0556,0.0,0.8008
+task2_sample_1.mid,Task 2 — VAE,4.0,20,50,76,26,0.15,0.0,0.793
+task2_sample_2.mid,Task 2 — VAE,4.0,18,50,74,24,0.0556,0.0,0.8008
+task2_sample_3.mid,Task 2 — VAE,4.0,18,50,74,24,0.0556,0.0,0.8008
+task2_sample_4.mid,Task 2 — VAE,4.0,19,50,76,26,0.1053,0.0,0.7862
+task2_sample_5.mid,Task 2 — VAE,4.0,18,50,74,24,0.0556,0.0,0.8008
+task2_sample_6.mid,Task 2 — VAE,4.0,19,50,74,24,0.1053,0.0,0.8036
+task2_sample_7.mid,Task 2 — VAE,4.0,19,50,76,26,0.1053,0.0,0.7862
+task3_sample_0.mid,Task 3 — Transformer,4.06,59,28,64,36,0.0847,0.3214,0.4173
+task3_sample_1.mid,Task 3 — Transformer,2.94,57,36,82,46,0.2807,0.0,0.8529
+task3_sample_2.mid,Task 3 — Transformer,4.0,16,43,74,31,0.625,0.0,0.5249
+task3_sample_3.mid,Task 3 — Transformer,4.06,38,37,85,48,0.3158,0.0,0.4198
+task3_sample_4.mid,Task 3 — Transformer,4.0,59,33,91,58,0.2203,0.0179,0.492
+task3_sample_5.mid,Task 3 — Transformer,3.81,13,58,65,7,0.6923,0.0,0.5634
+task3_sample_6.mid,Task 3 — Transformer,4.06,57,29,75,46,0.2632,0.0185,0.5375
+task3_sample_7.mid,Task 3 — Transformer,3.62,58,33,84,51,0.2931,0.0,0.5747
+task3_sample_8.mid,Task 3 — Transformer,3.94,26,43,83,40,0.5769,0.0,0.4599
+task3_sample_9.mid,Task 3 — Transformer,4.0,55,34,86,52,0.5818,0.0,0.5742

@@ -83,7 +83,7 @@ def generate_markov_music(transitions, num_steps=64, num_samples=5):
         print(f"Saved {output_path}")
 
 
-def generate_transformer_music(num_samples=10, max_new_tokens=512, genre="maestro"):
+def generate_transformer_music(num_samples=10, max_new_tokens=512, genre="lakh"):
     checkpoint_path = CHECKPOINT_DIR / "latest_transformer.pt"
     if not checkpoint_path.exists():
         print(f"Checkpoint not found at {checkpoint_path}")
@@ -138,7 +138,7 @@ if __name__ == "__main__":
     parser.add_argument("--model", choices=["baseline_random", "baseline_markov", "ae", "vae", "transformer"], default="baseline_random")
     parser.add_argument("--num_samples", type=int, default=5)
     parser.add_argument("--max_new_tokens", type=int, default=512)
-    parser.add_argument("--genre", type=str, default="maestro")
+    parser.add_argument("--genre", type=str, default="lakh")
     parser.add_argument("--dataset", type=str, default="maestro", help="Dataset for Markov baseline (e.g. maestro, lakh, groove)")
     args = parser.parse_args()
 

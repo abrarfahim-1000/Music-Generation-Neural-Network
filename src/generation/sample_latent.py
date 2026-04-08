@@ -115,7 +115,7 @@ def sample_vae(num_samples: int = 8):
         for i in range(num_samples):
             z = torch.randn(1, VAE_CONFIG["latent_dim"]).to(DEVICE)
             x_hat = model.decode(z)  # (1, seq_len, 128)
-            roll = x_hat.squeeze(0).cpu().numpy().T  # (128, seq_len)
+            roll = (x_hat.squeeze(0).cpu().numpy().T > 0.1).astype(np.float32)  # (128, seq_len)
             pm = piano_roll_to_pretty_midi(roll, fs=FS)
             output_path = GENERATED_MIDI_DIR / f"task2_sample_{i}.mid"
             pm.write(str(output_path))
@@ -157,7 +157,7 @@ def interpolate_vae(num_steps: int = 8):
         for i, alpha in enumerate(np.linspace(0.0, 1.0, num_steps)):
             z = (1.0 - alpha) * z1 + alpha * z2
             x_hat = model.decode(z)  # (1, seq_len, 128)
-            roll = x_hat.squeeze(0).cpu().numpy().T  # (128, seq_len)
+            roll = (x_hat.squeeze(0).cpu().numpy().T > 0.1).astype(np.float32)  # (128, seq_len)
             pm = piano_roll_to_pretty_midi(roll, fs=FS)
             output_path = GENERATED_MIDI_DIR / f"task2_interp_{i}.mid"
             pm.write(str(output_path))

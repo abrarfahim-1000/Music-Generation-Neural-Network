@@ -1,0 +1,42 @@
+filename,model,proxy_reward,base_score,mean_human_score,std_human_score,n_participants
+baseline_markov_0.mid,Markov Baseline,0.6676,3.6706,3.75,0.461,10
+baseline_markov_1.mid,Markov Baseline,0.5963,3.3851,3.4,0.3,10
+baseline_markov_2.mid,Markov Baseline,0.7276,3.9105,3.9,0.436,10
+baseline_markov_3.mid,Markov Baseline,0.7137,3.8548,3.85,0.229,10
+baseline_markov_4.mid,Markov Baseline,0.7308,3.9234,3.85,0.32,10
+baseline_random_0.mid,Random Baseline,0.5607,3.243,3.15,0.32,10
+baseline_random_1.mid,Random Baseline,0.5795,3.3179,3.15,0.32,10
+baseline_random_2.mid,Random Baseline,0.5549,3.2195,3.1,0.3,10
+baseline_random_3.mid,Random Baseline,0.5683,3.2734,3.05,0.35,10
+baseline_random_4.mid,Random Baseline,0.5627,3.2508,3.05,0.35,10
+task1_sample_0.mid,Task 1 — LSTM Autoencoder,0.6955,3.782,3.7,0.332,10
+task1_sample_1.mid,Task 1 — LSTM Autoencoder,0.733,3.9321,3.9,0.374,10
+task1_sample_2.mid,Task 1 — LSTM Autoencoder,0.7092,3.8367,3.8,0.64,10
+task1_sample_3.mid,Task 1 — LSTM Autoencoder,0.7687,4.0748,3.95,0.415,10
+task1_sample_4.mid,Task 1 — LSTM Autoencoder,0.7613,4.045,3.9,0.374,10
+task2_interp_0.mid,Task 2 — VAE (Interpolation),0.5566,3.2263,3.2,0.4,10
+task2_interp_1.mid,Task 2 — VAE (Interpolation),0.5566,3.2263,3.05,0.35,10
+task2_interp_2.mid,Task 2 — VAE (Interpolation),0.5566,3.2263,3.3,0.557,10
+task2_interp_3.mid,Task 2 — VAE (Interpolation),0.5566,3.2263,3.15,0.502,10
+task2_interp_4.mid,Task 2 — VAE (Interpolation),0.5566,3.2263,3.05,0.472,10
+task2_interp_5.mid,Task 2 — VAE (Interpolation),0.5566,3.2263,3.2,0.332,10
+task2_interp_6.mid,Task 2 — VAE (Interpolation),0.5566,3.2263,3.3,0.51,10
+task2_interp_7.mid,Task 2 — VAE (Interpolation),0.5566,3.2263,3.0,0.447,10
+task2_sample_0.mid,Task 2 — VAE,0.5425,3.1701,3.1,0.663,10
+task2_sample_1.mid,Task 2 — VAE,0.5772,3.3089,3.25,0.403,10
+task2_sample_2.mid,Task 2 — VAE,0.5425,3.1701,3.2,0.245,10
+task2_sample_3.mid,Task 2 — VAE,0.5425,3.1701,3.15,0.391,10
+task2_sample_4.mid,Task 2 — VAE,0.5566,3.2263,3.1,0.374,10
+task2_sample_5.mid,Task 2 — VAE,0.5425,3.1701,3.05,0.415,10
+task2_sample_6.mid,Task 2 — VAE,0.5635,3.2541,3.3,0.51,10
+task2_sample_7.mid,Task 2 — VAE,0.5566,3.2263,3.3,0.4,10
+task3_sample_0.mid,Task 3 — Transformer,0.3365,2.3462,2.4,0.49,10
+task3_sample_1.mid,Task 3 — Transformer,0.6534,3.6138,3.6,0.374,10
+task3_sample_2.mid,Task 3 — Transformer,0.66,3.6398,3.55,0.522,10
+task3_sample_3.mid,Task 3 — Transformer,0.4942,2.9769,3.0,0.224,10
+task3_sample_4.mid,Task 3 — Transformer,0.4814,2.9254,2.9,0.374,10
+task3_sample_5.mid,Task 3 — Transformer,0.7023,3.8091,3.95,0.522,10
+task3_sample_6.mid,Task 3 — Transformer,0.5166,3.0662,2.8,0.458,10
+task3_sample_7.mid,Task 3 — Transformer,0.5471,3.1885,3.1,0.3,10
+task3_sample_8.mid,Task 3 — Transformer,0.6147,3.4589,3.35,0.391,10
+task3_sample_9.mid,Task 3 — Transformer,0.6624,3.6496,3.5,0.5,10

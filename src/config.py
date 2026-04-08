@@ -79,12 +79,12 @@ TRANSFORMER_CONFIG = {
 
 # Task 4: RLHF Hyperparameters
 RLHF_CONFIG = {
-    "rl_steps": 30,
-    "episodes_per_step": 8,
+    "rl_steps": 600,
+    "episodes_per_step": 32,
     "max_new_tokens": 256,
     "lr": 5e-6,
     "temperature": 1.0,
-    "top_k": 10,
+    "top_k": 32,
     "num_eval_samples": 10,
     "reward_weights": {
         "pitch": 0.4,

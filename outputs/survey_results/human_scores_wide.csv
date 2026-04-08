@@ -1,0 +1,42 @@
+filename,model,participant_01,participant_02,participant_03,participant_04,participant_05,participant_06,participant_07,participant_08,participant_09,participant_10,mean_score,std_score
+baseline_markov_0.mid,Markov Baseline,4.0,4.0,4.0,4.5,3.5,3.0,4.0,3.0,4.0,3.5,3.75,0.461
+baseline_markov_1.mid,Markov Baseline,3.5,3.0,4.0,3.5,3.0,3.0,3.5,3.5,3.5,3.5,3.4,0.3
+baseline_markov_2.mid,Markov Baseline,5.0,3.5,4.0,3.5,4.0,4.0,4.0,3.5,3.5,4.0,3.9,0.436
+baseline_markov_3.mid,Markov Baseline,4.0,4.0,3.5,4.0,3.5,3.5,4.0,4.0,4.0,4.0,3.85,0.229
+baseline_markov_4.mid,Markov Baseline,4.0,4.0,3.5,4.0,3.5,3.5,4.0,4.5,3.5,4.0,3.85,0.32
+baseline_random_0.mid,Random Baseline,2.5,3.0,3.5,3.5,3.0,3.5,3.0,3.0,3.5,3.0,3.15,0.32
+baseline_random_1.mid,Random Baseline,3.0,2.5,3.0,3.5,3.0,3.5,3.0,3.5,3.5,3.0,3.15,0.32
+baseline_random_2.mid,Random Baseline,3.5,3.0,3.0,3.0,2.5,3.0,3.0,3.0,3.5,3.5,3.1,0.3
+baseline_random_3.mid,Random Baseline,3.5,3.0,3.0,3.5,2.5,2.5,3.0,3.0,3.5,3.0,3.05,0.35
+baseline_random_4.mid,Random Baseline,3.0,3.5,3.0,3.5,2.5,3.0,3.0,3.0,3.5,2.5,3.05,0.35
+task1_sample_0.mid,Task 1 — LSTM Autoencoder,4.0,3.5,3.5,3.5,3.5,3.5,4.0,3.5,4.5,3.5,3.7,0.332
+task1_sample_1.mid,Task 1 — LSTM Autoencoder,3.5,4.0,4.0,4.5,4.0,4.0,4.5,3.5,3.5,3.5,3.9,0.374
+task1_sample_2.mid,Task 1 — LSTM Autoencoder,3.5,3.0,4.0,4.0,3.0,3.0,4.0,4.0,4.5,5.0,3.8,0.64
+task1_sample_3.mid,Task 1 — LSTM Autoencoder,4.5,3.5,3.5,4.5,3.5,3.5,4.0,4.0,4.5,4.0,3.95,0.415
+task1_sample_4.mid,Task 1 — LSTM Autoencoder,4.0,3.5,3.5,4.0,3.5,4.5,4.0,4.5,4.0,3.5,3.9,0.374
+task2_interp_0.mid,Task 2 — VAE (Interpolation),3.0,3.0,4.0,3.0,3.5,2.5,3.5,3.5,3.0,3.0,3.2,0.4
+task2_interp_1.mid,Task 2 — VAE (Interpolation),3.0,3.0,3.0,3.0,2.5,3.0,4.0,3.0,3.0,3.0,3.05,0.35
+task2_interp_2.mid,Task 2 — VAE (Interpolation),4.0,3.0,3.0,4.0,3.0,3.5,3.5,2.5,2.5,4.0,3.3,0.557
+task2_interp_3.mid,Task 2 — VAE (Interpolation),4.0,3.0,3.0,4.0,2.5,2.5,3.5,3.0,3.0,3.0,3.15,0.502
+task2_interp_4.mid,Task 2 — VAE (Interpolation),3.5,3.5,3.5,3.5,2.0,3.0,3.0,2.5,3.0,3.0,3.05,0.472
+task2_interp_5.mid,Task 2 — VAE (Interpolation),3.5,2.5,3.5,3.0,3.0,3.5,3.5,3.5,3.0,3.0,3.2,0.332
+task2_interp_6.mid,Task 2 — VAE (Interpolation),3.0,3.0,3.5,3.0,3.0,3.0,4.5,4.0,3.0,3.0,3.3,0.51
+task2_interp_7.mid,Task 2 — VAE (Interpolation),2.5,3.0,3.5,4.0,2.5,3.0,2.5,3.0,3.0,3.0,3.0,0.447
+task2_sample_0.mid,Task 2 — VAE,3.0,3.0,2.5,2.5,3.5,2.5,3.0,4.0,4.5,2.5,3.1,0.663
+task2_sample_1.mid,Task 2 — VAE,3.0,3.5,4.0,3.0,3.0,3.5,3.5,3.0,3.5,2.5,3.25,0.403
+task2_sample_2.mid,Task 2 — VAE,3.0,3.0,3.5,3.0,3.0,3.5,3.5,3.5,3.0,3.0,3.2,0.245
+task2_sample_3.mid,Task 2 — VAE,3.0,3.0,3.0,4.0,3.5,3.0,3.0,2.5,3.5,3.0,3.15,0.391
+task2_sample_4.mid,Task 2 — VAE,3.5,2.5,3.5,3.5,2.5,3.0,3.5,3.0,3.0,3.0,3.1,0.374
+task2_sample_5.mid,Task 2 — VAE,3.0,3.0,4.0,2.5,3.0,3.0,3.5,3.0,2.5,3.0,3.05,0.415
+task2_sample_6.mid,Task 2 — VAE,4.0,2.5,3.5,3.5,3.0,2.5,3.0,3.5,3.5,4.0,3.3,0.51
+task2_sample_7.mid,Task 2 — VAE,3.5,3.0,4.0,3.5,3.5,3.0,3.5,3.0,3.5,2.5,3.3,0.4
+task3_sample_0.mid,Task 3 — Transformer,2.5,2.0,3.0,3.0,3.0,2.5,1.5,2.5,2.0,2.0,2.4,0.49
+task3_sample_1.mid,Task 3 — Transformer,4.5,3.5,3.5,3.5,3.5,3.0,3.5,3.5,4.0,3.5,3.6,0.374
+task3_sample_2.mid,Task 3 — Transformer,3.0,3.5,4.0,4.0,4.0,2.5,3.5,4.0,3.0,4.0,3.55,0.522
+task3_sample_3.mid,Task 3 — Transformer,3.0,3.0,3.0,3.5,3.0,3.0,3.0,3.0,2.5,3.0,3.0,0.224
+task3_sample_4.mid,Task 3 — Transformer,3.0,3.0,3.5,2.5,2.5,3.5,2.5,2.5,3.0,3.0,2.9,0.374
+task3_sample_5.mid,Task 3 — Transformer,4.0,4.0,4.5,4.5,3.5,4.5,3.5,3.0,4.5,3.5,3.95,0.522
+task3_sample_6.mid,Task 3 — Transformer,3.0,3.5,2.5,2.5,2.0,2.5,3.5,3.0,3.0,2.5,2.8,0.458
+task3_sample_7.mid,Task 3 — Transformer,2.5,3.0,3.0,3.5,3.0,3.0,3.5,3.0,3.5,3.0,3.1,0.3
+task3_sample_8.mid,Task 3 — Transformer,3.5,3.5,4.0,3.5,3.5,3.0,3.5,3.5,2.5,3.0,3.35,0.391
+task3_sample_9.mid,Task 3 — Transformer,3.0,2.5,3.5,4.0,3.0,3.5,4.0,4.0,3.5,4.0,3.5,0.5
