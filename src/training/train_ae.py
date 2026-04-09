@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 # Add src to path
 sys.path.append(str(Path(__file__).resolve().parent.parent.parent))
 
-from src.config import PROCESSED_DATA_DIR, CHECKPOINT_DIR, PLOTS_DIR, DEVICE, AE_CONFIG, SEQ_LEN
+from src.config import PROCESSED_DATA_DIR, CHECKPOINT_DIR, PLOTS_DIR, DEVICE, AE_CONFIG, SEQ_LEN, SEED
 from src.models.autoencoder import MusicAutoencoder
 
 
@@ -21,6 +21,7 @@ def train_ae(
     val_max_batches: int | None = None,
 ):
     epochs = AE_CONFIG['epochs']
+    torch.manual_seed(SEED)
     print(f"Using device: {DEVICE}")
 
     train_path = PROCESSED_DATA_DIR / "maestro_train.npy"

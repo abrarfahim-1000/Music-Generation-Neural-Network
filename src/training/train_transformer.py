@@ -23,6 +23,8 @@ from src.config import (
     GENERATED_MIDI_DIR,
     PLOTS_DIR,
     TRANSFORMER_CONFIG,
+    SEED,
+    PROCESSED_DATA_DIR,
 )
 from src.models.transformer import MusicTransformer
 from src.preprocessing.piano_roll import piano_roll_to_pretty_midi
@@ -34,9 +36,9 @@ from src.preprocessing.tokenizer import (
     piano_roll_batch_to_event_tokens,
     tokens_to_piano_roll,
 )
-PROCESSED_DATA_DIR = Path("F:/") / "lakh"
 
 
+torch.manual_seed(SEED)
 def load_genre_tokens(genres: list[str], split: str, max_seq_len: int):
     """
     Loads processed piano-roll arrays and converts to fixed-length event token sequences.

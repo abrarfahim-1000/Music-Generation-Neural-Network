@@ -40,3 +40,13 @@ task3_sample_6.mid,Task 3 — Transformer,0.5166,3.0662,2.8,0.458,10
 task3_sample_7.mid,Task 3 — Transformer,0.5471,3.1885,3.1,0.3,10
 task3_sample_8.mid,Task 3 — Transformer,0.6147,3.4589,3.35,0.391,10
 task3_sample_9.mid,Task 3 — Transformer,0.6624,3.6496,3.5,0.5,10
+task4_after_0.mid,Task 4 — RLHF,0.6263,3.505,3.35,0.391,10
+task4_after_1.mid,Task 4 — RLHF,0.7028,3.8111,3.65,0.32,10
+task4_after_2.mid,Task 4 — RLHF,0.6305,3.5221,3.55,0.472,10
+task4_after_3.mid,Task 4 — RLHF,0.5703,3.2811,3.45,0.472,10
+task4_after_4.mid,Task 4 — RLHF,0.4827,2.9307,2.7,0.51,10
+task4_after_5.mid,Task 4 — RLHF,0.4875,2.9502,3.0,0.447,10
+task4_after_6.mid,Task 4 — RLHF,0.5222,3.0888,3.05,0.269,10
+task4_after_7.mid,Task 4 — RLHF,0.5455,3.1818,3.0,0.387,10
+task4_after_8.mid,Task 4 — RLHF,0.2864,2.1455,2.05,0.568,10
+task4_after_9.mid,Task 4 — RLHF,0.5742,3.2966,3.3,0.4,10

@@ -21,11 +21,12 @@ from src.config import (
     DEVICE,
     VAE_CONFIG,
     FS,
+    SEED,
 )
 from src.models.vae import MusicVAE
 from src.preprocessing.piano_roll import piano_roll_to_pretty_midi
 
-
+torch.manual_seed(SEED)
 def kl_divergence(mu: torch.Tensor, log_var: torch.Tensor) -> torch.Tensor:
     """
     KL divergence between N(mu, sigma^2) and N(0, 1).

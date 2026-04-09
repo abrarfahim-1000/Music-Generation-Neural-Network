@@ -20,7 +20,7 @@ MODEL_PATTERNS = {
     "task1_ae": "task1_sample_*.mid",
     "task2_vae": "task2_sample_*.mid",
     "task3_transformer": "task3_sample_*.mid",
-    "task4_rlhf_before": "task4_before_*.mid",
+    "task4_rlhf_before": "task3_sample_*.mid",
     "task4_rlhf_after": "task4_after_*.mid",
 }
 
@@ -105,7 +105,7 @@ def evaluate_generated_midis(output_csv: Path | None = None, ref_file: str | Pat
     print(f"Saved grouped model comparison to {grouped_csv}")
 
     # Save Task 4 before-vs-after summary.
-    task4_subset = results_df[results_df["model"].isin(["task4_rlhf_before", "task4_rlhf_after"])].copy()
+    task4_subset = results_df[results_df["model"].isin(["task3_transformer", "task4_rlhf_after"])].copy()
     if not task4_subset.empty:
         task4_numeric = task4_subset.select_dtypes(include="number").columns.tolist()
         task4_comparison = (
@@ -200,11 +200,11 @@ def evaluate_group(midi_paths: list[Path], group_name: str, ref_file: Path | Non
 
 
 def compare_rlhf(output_csv: Path | None = None, ref_file: str | Path | None = None) -> tuple[pd.DataFrame, pd.DataFrame]:
-    before_files = sorted(GENERATED_MIDI_DIR.glob("task4_before_*.mid"))
+    before_files = sorted(GENERATED_MIDI_DIR.glob("task3_sample_*.mid"))
     after_files = sorted(GENERATED_MIDI_DIR.glob("task4_after_*.mid"))
 
     if not before_files:
-        raise RuntimeError("No files found for pattern task4_before_*.mid")
+        raise RuntimeError("No files found for pattern task3_sample_*.mid")
     if not after_files:
         raise RuntimeError("No files found for pattern task4_after_*.mid")
 
