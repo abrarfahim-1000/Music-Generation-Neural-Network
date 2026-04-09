@@ -30,6 +30,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pretty_midi
 import torch
+import torch.nn as nn
 import torch.optim as optim
 from torch.distributions import Categorical
 from tqdm import tqdm
@@ -157,6 +158,33 @@ def generate_sequence_no_grad(
         )
     return seq
 
+def get_log_prob_of_sequence(
+    model: MusicTransformer,
+    seq: np.ndarray,
+    genre_id: int,
+    temperature: float,
+    top_k: int,
+) -> torch.Tensor:
+    """Recomputes log_prob sum with gradients for an already-generated sequence."""
+    tokens = torch.tensor(seq, dtype=torch.long, device=DEVICE).unsqueeze(0)
+    genre_tensor = torch.tensor([genre_id], dtype=torch.long, device=DEVICE)
+    log_prob_sum = torch.tensor(0.0, device=DEVICE)
+    for i in range(1, tokens.size(1)):
+        context_start = max(0, i - model.max_seq_len)
+        context = tokens[:, context_start:i]
+        target_token = tokens[:, i]
+        logits = model(context, genre_ids=genre_tensor)
+        next_logits = logits[:, -1, :]
+        scaled = next_logits / temperature
+        # if top_k is not None and top_k > 0:
+        #     k = min(top_k, scaled.size(-1))
+        #     values, _ = torch.topk(scaled, k=k, dim=-1)
+        #     threshold = values[:, -1].unsqueeze(-1)
+        #     scaled = torch.where(scaled < threshold, torch.full_like(scaled, -1e9), scaled)
+        dist = Categorical(logits=scaled)
+        log_prob = dist.log_prob(target_token)
+        log_prob_sum = log_prob_sum + log_prob
+    return log_prob_sum
 
 def tokens_to_pretty_midi(tokens: np.ndarray) -> pretty_midi.PrettyMIDI:
     roll = tokens_to_piano_roll(tokens, num_pitches=128)
@@ -283,6 +311,168 @@ def load_survey_rewards(survey_csv: Path | None) -> dict[str, float]:
     return reward_map
 
 
+class RewardModel(nn.Module):
+    """Small MLP reward model trained on human survey labels."""
+
+    def __init__(self, input_dim: int) -> None:
+        super().__init__()
+        self.net = nn.Sequential(
+            nn.Linear(input_dim, 64),
+            nn.ReLU(),
+            nn.Linear(64, 32),
+            nn.ReLU(),
+            nn.Linear(32, 1),
+            nn.Sigmoid(),
+        )
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        return self.net(x)
+
+
+def _collect_non_drum_notes(pm: pretty_midi.PrettyMIDI) -> list[pretty_midi.Note]:
+    notes: list[pretty_midi.Note] = []
+    for inst in pm.instruments:
+        if inst.is_drum:
+            continue
+        notes.extend(inst.notes)
+    notes.sort(key=lambda n: (n.start, n.pitch))
+    return notes
+
+
+def extract_reward_features(
+    pm: pretty_midi.PrettyMIDI,
+    ref_pm: pretty_midi.PrettyMIDI | None,
+) -> np.ndarray:
+    """Feature vector used by the reward model (all values are in stable ranges)."""
+    notes = _collect_non_drum_notes(pm)
+    if not notes:
+        return np.zeros(8, dtype=np.float32)
+
+    durations = np.array([max(1e-4, n.end - n.start) for n in notes], dtype=np.float32)
+    velocities = np.array([n.velocity for n in notes], dtype=np.float32)
+    pitches = np.array([n.pitch for n in notes], dtype=np.float32)
+    starts = np.array([n.start for n in notes], dtype=np.float32)
+    span = float(max(1e-4, starts.max() - starts.min() + durations.mean()))
+
+    rhythm = float(rhythm_diversity(pm))
+    anti_rep = 1.0 - float(repetition_ratio(pm))
+    pitch_sim = 0.5 if ref_pm is None else float(pitch_histogram_similarity(pm, ref_pm))
+    note_density = float(min(1.0, len(notes) / max(1.0, span * 8.0)))
+    duration_var = float(min(1.0, np.std(durations) / (np.mean(durations) + 1e-8)))
+    velocity_mean = float(np.clip(np.mean(velocities) / 127.0, 0.0, 1.0))
+    pitch_span = float(np.clip((pitches.max() - pitches.min()) / 127.0, 0.0, 1.0))
+
+    if len(starts) > 1:
+        iois = np.diff(starts)
+        ioi_regularity = float(1.0 / (1.0 + (np.std(iois) / (np.mean(iois) + 1e-8))))
+    else:
+        ioi_regularity = 0.0
+
+    return np.array(
+        [
+            pitch_sim,
+            rhythm,
+            anti_rep,
+            note_density,
+            duration_var,
+            velocity_mean,
+            pitch_span,
+            ioi_regularity,
+        ],
+        dtype=np.float32,
+    )
+
+
+def _resolve_survey_midi_path(filename: str) -> Path | None:
+    p = Path(filename)
+
+    # Restrict survey file resolution to generated MIDI outputs.
+    if p.is_absolute() or ".." in p.parts:
+        return None
+
+    suffix = p.suffix.lower()
+    if suffix not in {".mid", ".midi"}:
+        return None
+
+    by_name = GENERATED_MIDI_DIR / p.name
+    if by_name.exists():
+        return by_name
+
+    return None
+
+
+def train_reward_model_from_survey(
+    survey_rewards: dict[str, float],
+    ref_pm: pretty_midi.PrettyMIDI | None,
+    epochs: int = 300,
+) -> tuple[RewardModel | None, np.ndarray | None, np.ndarray | None]:
+    """Fits a reward model on (midi_features -> mean_human_score)."""
+    if not survey_rewards:
+        return None, None, None
+
+    xs: list[np.ndarray] = []
+    ys: list[float] = []
+
+    for name, score in survey_rewards.items():
+        midi_path = _resolve_survey_midi_path(name)
+        if midi_path is None:
+            continue
+        try:
+            pm = pretty_midi.PrettyMIDI(str(midi_path))
+            xs.append(extract_reward_features(pm, ref_pm))
+            ys.append(float(np.clip(score, 0.0, 1.0)))
+        except Exception:
+            continue
+
+    if len(xs) < 5:
+        print("[RLHF] Not enough usable survey MIDI files for reward-model training.")
+        return None, None, None
+
+    x = np.stack(xs).astype(np.float32)
+    y = np.array(ys, dtype=np.float32).reshape(-1, 1)
+
+    feat_mean = x.mean(axis=0)
+    feat_std = x.std(axis=0) + 1e-6
+    x_norm = (x - feat_mean) / feat_std
+
+    x_t = torch.tensor(x_norm, dtype=torch.float32, device=DEVICE)
+    y_t = torch.tensor(y, dtype=torch.float32, device=DEVICE)
+
+    model = RewardModel(input_dim=x_t.shape[1]).to(DEVICE)
+    optimizer = optim.Adam(model.parameters(), lr=1e-3)
+    criterion = nn.MSELoss()
+
+    model.train()
+    for _ in range(epochs):
+        pred = model(x_t)
+        loss = criterion(pred, y_t)
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+
+    model.eval()
+    with torch.no_grad():
+        train_pred = model(x_t)
+        train_mae = torch.mean(torch.abs(train_pred - y_t)).item()
+    print(f"[RLHF] Reward model trained on {len(xs)} samples (train MAE={train_mae:.4f}).")
+    return model, feat_mean, feat_std
+
+
+def predict_reward_from_model(
+    reward_model: RewardModel,
+    feat_mean: np.ndarray,
+    feat_std: np.ndarray,
+    pm: pretty_midi.PrettyMIDI,
+    ref_pm: pretty_midi.PrettyMIDI | None,
+) -> float:
+    features = extract_reward_features(pm, ref_pm)
+    features = (features - feat_mean) / feat_std
+    x_t = torch.tensor(features, dtype=torch.float32, device=DEVICE).unsqueeze(0)
+    with torch.no_grad():
+        reward = reward_model(x_t).squeeze().item()
+    return float(np.clip(reward, 0.0, 1.0))
+
+
 # ---------------------------------------------------------------------------
 # Main training function
 # ---------------------------------------------------------------------------
@@ -309,6 +499,7 @@ def train_rlhf(
             "Falling back to proxy reward. Run survey/generate_survey.py first."
         )
     use_survey = len(survey_rewards) > 0
+    survey_mean_reward = float(np.mean(list(survey_rewards.values()))) if use_survey else 0.0
 
     # ── Load Task 3 checkpoint ─────────────────────────────────────────────
     base_ckpt = CHECKPOINT_DIR / "latest_transformer.pt"
@@ -356,124 +547,171 @@ def train_rlhf(
     ref_pm = load_reference_pretty_midi()
     reward_weights = RLHF_CONFIG["reward_weights"]
 
+    reward_model, reward_feat_mean, reward_feat_std = train_reward_model_from_survey(
+        survey_rewards=survey_rewards,
+        ref_pm=ref_pm,
+    )
+    use_reward_model = (
+        reward_model is not None and reward_feat_mean is not None and reward_feat_std is not None
+    )
+
     # ── Survey-seeded warm start ───────────────────────────────────────────
     # Use mean of all survey scores as the initial best_mean_reward so the
     # first training step isn't trivially a new best.
     if use_survey and start_step == 0:
-        initial_mean = float(np.mean(list(survey_rewards.values())))
+        initial_mean = survey_mean_reward
         best_mean_reward = initial_mean
         print(f"[RLHF] Survey mean reward (normalised): {initial_mean:.4f}")
 
     end_step = start_step + rl_steps
     model.train()
+    dominant_source = "survey_model" if use_reward_model else ("survey_mean" if use_survey else "proxy")
+    run_best_mean_reward = best_mean_reward
+    run_best_state_dict = None
+    run_best_step = None
+    run_best_reward_source = dominant_source
 
     print(
         f"[RLHF] Starting RLHF (survey-first, single run): "
         f"steps {start_step+1}–{end_step}, {episodes_per_step} episodes/step, "
-        f"reward_source={'survey' if use_survey else 'proxy'}"
+        f"reward_source={'survey_model' if use_reward_model else ('survey' if use_survey else 'proxy')}"
     )
 
     for step_idx in range(start_step, end_step):
         model.train()
 
-        episode_log_probs: list[torch.Tensor] = []
+        episode_seqs: list[np.ndarray] = []
         episode_rewards: list[float] = []
+        reward_source_counts = {"survey_model": 0, "survey_lookup": 0, "survey_mean": 0, "proxy": 0}
 
-        for ep in tqdm(range(episodes_per_step), desc=f"RL step {step_idx+1}/{end_step}"):
-            seq, log_prob_sum = generate_sequence_with_log_prob(
+        # ── PHASE 1: Rollout (no gradients, low VRAM) ──────────────────────
+        for ep in tqdm(range(episodes_per_step), desc=f"RL step {step_idx+1}/{end_step} (Rollout)"):
+            seq = generate_sequence_no_grad(
                 model=model, genre_id=genre_id, max_new_tokens=max_new_tokens,
                 temperature=temperature, top_k=top_k,
             )
+            episode_seqs.append(seq)
             pm = tokens_to_pretty_midi(seq)
 
             sample_name = f"task4_iter_{step_idx}_ep_{ep}.mid"
             sample_path = GENERATED_MIDI_DIR / sample_name
             pm.write(str(sample_path))
 
-            # ── Reward: survey score if the sample name is in the map,
-            #    otherwise use the survey *mean* as reward so training is
-            #    still anchored to human preferences.
-            if use_survey and sample_name in survey_rewards:
+            if use_reward_model:
+                reward = predict_reward_from_model(
+                    reward_model=reward_model, feat_mean=reward_feat_mean,
+                    feat_std=reward_feat_std, pm=pm, ref_pm=ref_pm,
+                )
+                reward_source_counts["survey_model"] += 1
+            elif use_survey and sample_name in survey_rewards:
                 reward = survey_rewards[sample_name]
+                reward_source_counts["survey_lookup"] += 1
             elif use_survey:
-                # Newly generated samples during training use survey mean
-                # as reward — keeps gradient ascent aligned with human prefs.
-                reward = float(np.mean(list(survey_rewards.values())))
+                proxy_reward = compute_proxy_reward(pm, ref_pm, reward_weights)
+                reward = 0.7 * proxy_reward + 0.3 * survey_mean_reward
+                reward_source_counts["survey_mean"] += 1
             else:
                 reward = compute_proxy_reward(pm, ref_pm, reward_weights)
+                reward_source_counts["proxy"] += 1
 
-            episode_log_probs.append(log_prob_sum)
             episode_rewards.append(reward)
-            
-            del seq, pm
+            del pm
             if DEVICE == "xpu" and hasattr(torch, "xpu"):
                 torch.xpu.empty_cache()
             elif torch.cuda.is_available():
                 torch.cuda.empty_cache()
             gc.collect()
 
-        log_probs_tensor = torch.stack(episode_log_probs)
         rewards_tensor = torch.tensor(episode_rewards, dtype=torch.float32, device=DEVICE)
 
-        # Variance-reduction baseline for REINFORCE.
+        # ── PHASE 2: Advantages ────────────────────────────────────────────
         advantages = rewards_tensor - rewards_tensor.mean()
         std = rewards_tensor.std(unbiased=False)
         if std > 1e-8:
             advantages = advantages / (std + 1e-8)
 
-        # Gradient ascent: minimise negative expected reward.
-        loss = -(advantages.detach() * log_probs_tensor).mean()
+        # ── PHASE 3: Gradient accumulation (one episode at a time) ─────────
         optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
+        step_loss_sum = 0.0
+        for ep in tqdm(range(episodes_per_step), desc=f"RL step {step_idx+1}/{end_step} (Backprop)"):
+            log_prob_sum = get_log_prob_of_sequence(
+                model=model, seq=episode_seqs[ep], genre_id=genre_id,
+                temperature=temperature, top_k=top_k,
+            )
+            loss = -(advantages[ep].detach() * log_prob_sum) / episodes_per_step
+            loss.backward()
+            step_loss_sum += float(loss.item())
+            del log_prob_sum, loss
+            if DEVICE == "xpu" and hasattr(torch, "xpu"):
+                torch.xpu.empty_cache()
+            elif torch.cuda.is_available():
+                torch.cuda.empty_cache()
+            gc.collect()
 
-        del log_probs_tensor, advantages, loss
-        if DEVICE == "xpu" and hasattr(torch, "xpu"):
-            torch.xpu.empty_cache()
-        elif torch.cuda.is_available():
-            torch.cuda.empty_cache()
-        gc.collect()
+        optimizer.step()
+        loss_value = step_loss_sum
         
         mean_reward = float(rewards_tensor.mean().item())
         step_rewards.append(mean_reward)
-        step_losses.append(float(loss.item()))
+        step_losses.append(loss_value)
 
         print(
             f"[RLHF] Step {step_idx+1}: mean_reward={mean_reward:.4f}, "
-            f"loss={loss.item():.6f}"
+            f"loss={loss_value:.6f}"
         )
+
+        del rewards_tensor
+
+        dominant_source = max(reward_source_counts, key=reward_source_counts.get)
 
         if mean_reward > best_mean_reward:
             best_mean_reward = mean_reward
-            best_payload = dict(payload)
-            best_payload["model_state_dict"] = model.state_dict()
-            best_payload["rlhf"] = {
-                "best_mean_reward": best_mean_reward,
-                "step": step_idx + 1,
-                "reward_source": "survey" if use_survey else "proxy",
+        if mean_reward > run_best_mean_reward:
+            run_best_mean_reward = mean_reward
+            run_best_step = step_idx + 1
+            run_best_reward_source = dominant_source
+            run_best_state_dict = {
+                k: v.detach().cpu().clone() for k, v in model.state_dict().items()
             }
-            torch.save(best_payload, CHECKPOINT_DIR / "best_rlhf.pt")
 
-        torch.save(
-            {
-                "model_state_dict": model.state_dict(),
-                "optimizer_state_dict": optimizer.state_dict(),
-                "step_completed": step_idx,
-                "best_mean_reward": best_mean_reward,
-                "step_rewards": step_rewards,
-                "step_losses": step_losses,
-                "genre_to_id": genre_to_id,
-            },
-            resume_path,
-        )
+    # Single checkpoint save with all cumulative RLHF history (one save per run).
+    step_completed = end_step - 1 if end_step > start_step else start_step - 1
+    torch.save(
+        {
+            "model_state_dict": model.state_dict(),
+            "optimizer_state_dict": optimizer.state_dict(),
+            "step_completed": step_completed,
+            "best_mean_reward": best_mean_reward,
+            "step_rewards": step_rewards,
+            "step_losses": step_losses,
+            "genre_to_id": genre_to_id,
+            "reward_source_effective": dominant_source,
+        },
+        resume_path,
+    )
+
+    # Optionally update best checkpoint once per run.
+    if run_best_state_dict is not None:
+        best_payload = dict(payload)
+        best_payload["model_state_dict"] = run_best_state_dict
+        best_payload["rlhf"] = {
+            "best_mean_reward": run_best_mean_reward,
+            "step": run_best_step,
+            "reward_source": run_best_reward_source,
+        }
+        torch.save(best_payload, CHECKPOINT_DIR / "best_rlhf.pt")
 
     # ── Generate after-RLHF samples ────────────────────────────────────────
-    # Load the best checkpoint if available.
-    best_ckpt = CHECKPOINT_DIR / "best_rlhf.pt"
-    if best_ckpt.exists():
-        best_payload = torch.load(best_ckpt, map_location=DEVICE, weights_only=False)
-        model.load_state_dict(best_payload["model_state_dict"])
-        print("[RLHF] Loaded best_rlhf.pt for after-sample generation.")
+    # Use best model found in this run if available; otherwise fallback to global best.
+    if run_best_state_dict is not None:
+        model.load_state_dict(run_best_state_dict)
+        print("[RLHF] Loaded best in-run model for after-sample generation.")
+    else:
+        best_ckpt = CHECKPOINT_DIR / "best_rlhf.pt"
+        if best_ckpt.exists():
+            best_payload = torch.load(best_ckpt, map_location=DEVICE, weights_only=False)
+            model.load_state_dict(best_payload["model_state_dict"])
+            print("[RLHF] Loaded best_rlhf.pt for after-sample generation.")
 
     save_midi_samples(
         model=model, genre_id=genre_id, output_prefix="task4_after",
@@ -496,7 +734,7 @@ def train_rlhf(
     with summary_json.open("w", encoding="utf-8") as f:
         json.dump(
             {
-                "reward_source": "survey" if use_survey else "proxy",
+                "reward_source": "survey_model" if use_reward_model else ("survey" if use_survey else "proxy"),
                 "rl_steps": rl_steps,
                 "episodes_per_step": episodes_per_step,
                 "max_new_tokens": max_new_tokens,
@@ -505,29 +743,45 @@ def train_rlhf(
                 "num_after_samples": num_eval_samples,
                 "survey_csv": str(survey_csv) if survey_csv else None,
                 "n_survey_files": len(survey_rewards),
+                "reward_model_enabled": use_reward_model,
+                "reward_model_feature_dim": int(reward_feat_mean.shape[0]) if use_reward_model else None,
+                "reward_source_effective": dominant_source,
             },
             f,
             indent=2,
         )
     print(f"[RLHF] Summary saved to {summary_json}")
 
-    # ── Reward curve plot ──────────────────────────────────────────────────
-    plt.figure(figsize=(10, 5))
-    plt.plot(step_rewards, label="Mean Reward per Step")
-    plt.axhline(
-        y=float(np.mean(list(survey_rewards.values()))) if use_survey else 0,
+    # ── Cumulative reward/loss curves (across all runs) ────────────────────
+    fig, axes = plt.subplots(1, 2, figsize=(14, 5))
+
+    total_steps_trained = len(step_rewards)
+    step_range = list(range(total_steps_trained))
+
+    axes[0].plot(step_range, step_rewards, label="Mean Reward")
+    axes[0].axhline(
+        y=survey_mean_reward if use_survey else 0,
         color="gray", linestyle="--", alpha=0.6,
         label="Survey mean (baseline)",
     )
-    plt.xlabel("RL Iteration")
-    plt.ylabel("Reward (normalised 0–1)")
-    plt.title("Task 4: RLHF Reward Curve (survey-driven)")
-    plt.legend()
-    plt.grid(True, alpha=0.3)
-    plot_path = PLOTS_DIR / "task4_rlhf_reward_curve.png"
+    axes[0].set_title(f"Task 4: RLHF Reward (Cumulative: {total_steps_trained} steps)")
+    axes[0].set_xlabel("Step")
+    axes[0].set_ylabel("Reward (normalised 0-1)")
+    axes[0].legend()
+    axes[0].grid(True, alpha=0.3)
+
+    axes[1].plot(step_range, step_losses, label="Policy Loss")
+    axes[1].set_title(f"Task 4: RLHF Loss (Cumulative: {total_steps_trained} steps)")
+    axes[1].set_xlabel("Step")
+    axes[1].set_ylabel("Loss")
+    axes[1].legend()
+    axes[1].grid(True, alpha=0.3)
+
+    plt.tight_layout()
+    plot_path = PLOTS_DIR / "task4_rlhf_curves.png"
     plt.savefig(plot_path)
-    plt.close()
-    print(f"[RLHF] Reward curve saved to {plot_path}")
+    plt.close(fig)
+    print(f"[RLHF] Saved cumulative curves ({total_steps_trained} steps) to {plot_path}")
     print("[RLHF] Training complete.")
 
 
