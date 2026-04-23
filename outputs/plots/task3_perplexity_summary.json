@@ -1,9 +1,9 @@
 {
-  "total_epochs_trained": 30,
-  "best_val_loss": 0.982246309900406,
-  "best_val_perplexity": 2.6704481637019044,
-  "last_val_loss": 0.982246309900406,
-  "last_val_perplexity": 2.6704481637019044,
+  "total_epochs_trained": 50,
+  "best_val_loss": 0.96744740329845,
+  "best_val_perplexity": 2.63121943781378,
+  "last_val_loss": 0.9688435042331832,
+  "last_val_perplexity": 2.63489545117617,
   "epoch_range": [
     0,
     1,
@@ -34,6 +34,26 @@
     26,
     27,
     28,
-    29
+    29,
+    30,
+    31,
+    32,
+    33,
+    34,
+    35,
+    36,
+    37,
+    38,
+    39,
+    40,
+    41,
+    42,
+    43,
+    44,
+    45,
+    46,
+    47,
+    48,
+    49
   ]
 }

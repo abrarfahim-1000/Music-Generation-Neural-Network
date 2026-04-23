@@ -1,10 +1,10 @@
 {
   "reward_source": "survey_model",
-  "rl_steps": 45,
+  "rl_steps": 50,
   "episodes_per_step": 16,
   "max_new_tokens": 256,
-  "best_mean_reward": 0.7588432431221008,
-  "final_mean_reward": 0.6584712862968445,
+  "best_mean_reward": 0.7231869101524353,
+  "final_mean_reward": 0.7231869101524353,
   "num_after_samples": 10,
   "survey_csv": "outputs\\survey_results\\human_scores.csv",
   "n_survey_files": 41,
