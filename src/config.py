@@ -73,14 +73,14 @@ TRANSFORMER_CONFIG = {
     "num_layers": 6,
     "max_seq_len": 256,
     "batch_size": 64,
-    "epochs": 5,
+    "epochs": 50,
     "lr": 1e-4
 }
 
 # Task 4: RLHF Hyperparameters
 RLHF_CONFIG = {
-    "rl_steps": 600,
-    "episodes_per_step": 32,
+    "rl_steps": 200,
+    "episodes_per_step": 16,
     "max_new_tokens": 256,
     "lr": 5e-6,
     "temperature": 1.0,
