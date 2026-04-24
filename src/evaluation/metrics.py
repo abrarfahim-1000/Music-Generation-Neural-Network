@@ -9,7 +9,7 @@ import pandas as pd
 # Add src to path when run as a script.
 sys.path.append(str(Path(__file__).resolve().parent.parent.parent))
 
-from src.config import GENERATED_MIDI_DIR, MAESTRO_CSV, MAESTRO_DIR
+from src.config import GENERATED_MIDI_DIR, PLOTS_DIR, MAESTRO_CSV, MAESTRO_DIR
 from src.evaluation.pitch_histogram import pitch_histogram_similarity
 from src.evaluation.rhythm_score import rhythm_diversity, repetition_ratio
 
@@ -23,6 +23,18 @@ MODEL_PATTERNS = {
     "task4_rlhf_before": "task3_sample_*.mid",
     "task4_rlhf_after": "task4_after_*.mid",
 }
+
+
+def _write_csv_with_legacy_mirror(df: pd.DataFrame, path: Path, legacy_filename: str) -> None:
+    """Write CSV to canonical path and mirror to legacy generated_midis path."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    df.to_csv(path, index=False)
+
+    legacy_path = GENERATED_MIDI_DIR / legacy_filename
+    if legacy_path != path:
+        legacy_path.parent.mkdir(parents=True, exist_ok=True)
+        df.to_csv(legacy_path, index=False)
+        print(f"[metrics] Mirrored CSV to legacy path: {legacy_path}")
 
 
 def default_reference_file() -> Path | None:
@@ -54,7 +66,7 @@ def evaluate_generated_midis(output_csv: Path | None = None, ref_file: str | Pat
     Evaluates all .mid files in outputs/generated_midis and writes a CSV report.
 
     Args:
-        output_csv: Destination CSV path. Defaults to outputs/generated_midis/evaluation_results.csv.
+        output_csv: Destination CSV path. Defaults to outputs/plots and eval metrics/evaluation_results.csv.
         ref_file:   Reference MIDI for pitch histogram similarity. If None, falls back
                     to the first MAESTRO training file when the CSV is available.
                     Pass an explicit path for Task 2 / Task 3 evaluations that use
@@ -88,8 +100,8 @@ def evaluate_generated_midis(output_csv: Path | None = None, ref_file: str | Pat
     results_df["model"] = results_df["filename"].apply(_infer_model_name)
 
     if output_csv is None:
-        output_csv = GENERATED_MIDI_DIR / "evaluation_results.csv"
-    results_df.to_csv(output_csv, index=False)
+        output_csv = PLOTS_DIR / "evaluation_results.csv"
+    _write_csv_with_legacy_mirror(results_df, output_csv, "evaluation_results.csv")
     print(f"\nSaved results to {output_csv}")
 
     # Save grouped cross-model summary for rubric comparison.
@@ -100,8 +112,8 @@ def evaluate_generated_midis(output_csv: Path | None = None, ref_file: str | Pat
         .reset_index()
         .sort_values("model")
     )
-    grouped_csv = GENERATED_MIDI_DIR / "all_models_comparison.csv"
-    grouped.to_csv(grouped_csv, index=False)
+    grouped_csv = PLOTS_DIR / "all_models_comparison.csv"
+    _write_csv_with_legacy_mirror(grouped, grouped_csv, "all_models_comparison.csv")
     print(f"Saved grouped model comparison to {grouped_csv}")
 
     # Save Task 4 before-vs-after summary.
@@ -114,8 +126,8 @@ def evaluate_generated_midis(output_csv: Path | None = None, ref_file: str | Pat
             .reset_index()
             .sort_values("model")
         )
-        task4_csv = GENERATED_MIDI_DIR / "task4_comparison.csv"
-        task4_comparison.to_csv(task4_csv, index=False)
+        task4_csv = PLOTS_DIR / "task4_comparison.csv"
+        _write_csv_with_legacy_mirror(task4_comparison, task4_csv, "task4_comparison.csv")
         print("\nTask 4 before-vs-after comparison:")
         print(task4_comparison.to_string(index=False))
         print(f"Saved Task 4 comparison to {task4_csv}")
@@ -177,9 +189,8 @@ def aggregate_all_models(output_csv: Path | None = None, ref_file: str | Path | 
     )
 
     if output_csv is None:
-        output_csv = GENERATED_MIDI_DIR / "all_models_comparison.csv"
-    output_csv.parent.mkdir(parents=True, exist_ok=True)
-    summary.to_csv(output_csv, index=False)
+        output_csv = PLOTS_DIR / "all_models_comparison.csv"
+    _write_csv_with_legacy_mirror(summary, output_csv, "all_models_comparison.csv")
     return summary
 
 
@@ -230,9 +241,8 @@ def compare_rlhf(output_csv: Path | None = None, ref_file: str | Path | None = N
     )
 
     if output_csv is None:
-        output_csv = GENERATED_MIDI_DIR / "task4_comparison.csv"
-    output_csv.parent.mkdir(parents=True, exist_ok=True)
-    summary.to_csv(output_csv, index=False)
+        output_csv = PLOTS_DIR / "task4_comparison.csv"
+    _write_csv_with_legacy_mirror(summary, output_csv, "task4_comparison.csv")
 
     return all_df, summary
 
@@ -271,10 +281,10 @@ if __name__ == "__main__":
     if args.all:
         table = aggregate_all_models(output_csv=output_path, ref_file=args.ref_file)
         print(table.to_string(index=False))
-        print(f"\nSaved all-model comparison to {output_path or (GENERATED_MIDI_DIR / 'all_models_comparison.csv')}")
+        print(f"\nSaved all-model comparison to {output_path or (PLOTS_DIR / 'all_models_comparison.csv')}")
     elif args.compare_rlhf:
         _, summary_df = compare_rlhf(output_csv=output_path, ref_file=args.ref_file)
         print(summary_df.to_string(index=False))
-        print(f"\nSaved RLHF before/after comparison to {output_path or (GENERATED_MIDI_DIR / 'task4_comparison.csv')}")
+        print(f"\nSaved RLHF before/after comparison to {output_path or (PLOTS_DIR / 'task4_comparison.csv')}")
     else:
         evaluate_generated_midis(output_csv=output_path, ref_file=args.ref_file)

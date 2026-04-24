@@ -21,7 +21,7 @@ MAESTRO_CSV = MAESTRO_DIR / "maestro-v3.0.0.csv"
 # Output Paths
 OUTPUT_DIR = BASE_DIR / "outputs"
 GENERATED_MIDI_DIR = OUTPUT_DIR / "generated_midis"
-PLOTS_DIR = OUTPUT_DIR / "plots"
+PLOTS_DIR = OUTPUT_DIR / "plots and eval metrics"
 SURVEY_DIR = OUTPUT_DIR / "survey_results"
 CHECKPOINT_DIR = BASE_DIR / "checkpoints"
 
