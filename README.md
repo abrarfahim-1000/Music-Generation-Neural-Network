@@ -70,15 +70,23 @@ source .venv/Scripts/activate
 pip install -r requirements.txt
 ```
 
-### 3. Place datasets
+### 3. Download Datasets
 
-Expected raw data folders:
+You need **at least one** of the following datasets:
 
-- MAESTRO: `data/raw_midi/maestro/`
+| Dataset | Best for | Download Link |
+|---------|----------|---------------|
+| **MAESTRO** | Task 1 (Classical Piano, single genre) | https://magenta.tensorflow.org/datasets/maestro |
+| **Lakh MIDI** | Task 2+ (multi-genre) | https://colinraffel.com/projects/lmd/ |
+| **Groove MIDI** | Jazz/Drums rhythm diversity | https://magenta.tensorflow.org/datasets/groove |
+
+> **Recommended:** Start with MAESTRO for Task 1 (clean, single-genre). Add Lakh MIDI for Task 2.
+
+After downloading, place the datasets in the following directories:
+
+- MAESTRO: `data/raw_midi/maestro/` (should contain `maestro-v3.0.0.csv` and MIDI files)
 - Groove: `data/raw_midi/groove/`
-- Lakh cleaned MIDI: `data/raw_midi/clean_midi/`
-
-Important: Lakh is expected under `clean_midi` (not `lakh`) because `src/config.py` maps `LAKH_DIR` to `data/raw_midi/clean_midi`.
+- Lakh cleaned MIDI: `data/raw_midi/clean_midi/` (note: Lakh is expected under `clean_midi` not `lakh`)
 
 ### 4. Run preprocessing
 
